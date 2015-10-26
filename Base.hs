@@ -1,8 +1,7 @@
 
-
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FunctionalDependencies #-}
+
 
 module Base where
 
@@ -61,13 +60,13 @@ class Conditional d where
     condition :: (a -> Prob) -> d a -> d a
 
 -- | An interface for representation that can recover the prior and likelihood separately.
--- class Bayesian d d' | d -> d' where
---     -- | Prior distribution with associated likelihood scores.
---     prior :: d a -> d' (a,Prob)
+class Bayesian d where
+    -- | Prior distribution with associated likelihood scores.
+    prior :: d a -> d (a,Prob)
 
---     -- | Equivalent to 'fmap' 'fst' . 'prior'
---     prior' :: d a -> d' a
--- --    prior' = fmap fst . prior
+    -- | Equivalent to 'fmap' 'fst' . 'prior'
+    prior' :: d a -> d a
+--    prior' = fmap fst . prior
 
 -- | Representations that can accommodate external samplers.
 class Sampler d where
