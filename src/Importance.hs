@@ -16,10 +16,10 @@ resample xs = sequence $ replicate n $ fmap (,1) $ categorical xs where
 flatten :: Samples (Samples a) -> Samples a
 flatten xss = [(x,p*q) | (xs,p) <- xss, (x,q) <- xs]
 
-importance :: Int -> Dist a -> Dist (Samples a)
+importance :: Int -> CDist a -> Dist (Samples a)
 importance n d = sequence $ replicate n $ prior d
 
-importance' :: Int -> Dist a -> Dist a
+importance' :: Int -> CDist a -> Dist a
 importance' n d = importance n d >>= categorical
 
 normalize :: Samples a -> Samples a

@@ -12,8 +12,7 @@ import Dist
 -- | Uses rejection sampling to generate exact samples from the posterior.
 -- The first argument is an upper bound on likelihood scores.
 -- The tighter this bound, the more efficient the algorithm is.
-rejectionSampling :: (Monad d, Bayesian d, DiscreteDist d) =>
-                   Prob -> d a -> d a
+rejectionSampling :: Prob -> CDist a -> Dist a
 rejectionSampling cap d =
     iterate where
         p = prior d
@@ -24,7 +23,7 @@ rejectionSampling cap d =
 
 -- | A more efficient version of 'rejectionSampling' where rejection
 -- step is preformed after each conditional.
-stepRej :: Prob -> Dist a -> Dist a
+stepRej :: Prob -> CDist a -> Dist a
 stepRej cap (Conditional c d) =
     iterate where
         exactD = stepRej cap d
@@ -32,6 +31,5 @@ stepRej cap (Conditional c d) =
           x    <- exactD
           keep <- bernoulli (c x / cap)
           if keep then return x else iterate
-stepRej cap (Bind d f) = stepRej cap d >>= f
---Non-recursive cases are not conditional, so don't have to be modified
-stepRej cap d = d
+stepRej cap (CBind d f) = stepRej cap d >>= f
+stepRej cap (Pure d) = d
