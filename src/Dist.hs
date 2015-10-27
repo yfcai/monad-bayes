@@ -1,5 +1,8 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE GADTs,
+             TupleSections,
+             KindSignatures,
+             TypeOperators,
+             DataKinds #-}
 
 module Dist where
 
@@ -10,6 +13,9 @@ import qualified Data.Random as Ext
 import Control.Applicative (Applicative, pure, (<*>))
 import Control.Arrow (first, second)
 import Control.Monad (liftM, liftM2)
+
+import Data.HList.HList
+import Control.Monad.Indexed
 
 import Base
 import Explicit hiding (djoin)
@@ -79,3 +85,24 @@ instance Sampleable Dist where
     sample g (Conditional c d) = error "Attempted to sample from a conditional distribution."
 
 
+data JDist :: * -> * -> * -> * where
+    JReturn :: a -> JDist x x a
+    JBind :: JDist x y a -> (a -> JDist y z b) -> JDist  x z b
+    JPrimitive :: (Sampleable d, Scoreable d, Eq a) =>
+                  d a -> JDist (HList x) (HList (a ': x)) a
+    JConditional :: (a -> Prob) -> JDist x y a -> JDist x y a
+
+instance Functor (JDist x y) where
+    fmap f d = d `JBind` (JReturn . f)
+
+instance IxFunctor JDist where
+    imap = fmap
+
+instance IxPointed JDist where
+    ireturn = JReturn
+
+instance IxApplicative JDist where
+    iap f d = f `JBind` \f -> d `JBind` (ireturn . f)
+
+instance IxMonad JDist where
+    ibind = flip JBind
