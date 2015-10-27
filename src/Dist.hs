@@ -5,7 +5,9 @@
     ScopedTypeVariables,
     KindSignatures,
     TypeOperators,
-    DataKinds #-}
+    DataKinds,
+    FlexibleInstances
+    #-}
 
 module Dist where
 
@@ -14,12 +16,16 @@ import Control.Applicative (Applicative, pure, (<*>))
 import Control.Arrow (first, second)
 import Control.Monad (liftM, liftM2)
 
+import qualified Data.Random as Ext
+import qualified Data.Random.Distribution.Bernoulli as Bern
+
 import Data.HList.HList
 import Control.Monad.Indexed
 
 import Base
 import Explicit hiding (djoin)
 import Sampler (external, StdSampler)
+import External
 
 -- | A symbolic representation of a probabilistic program which basically remembers all applications of 'return' and '>>='.
 -- Formally a free model for a probability monad.
@@ -108,7 +114,7 @@ instance Sampleable Dist where
 data JDist :: * -> * -> * -> * where
     JReturn :: a -> JDist x x a
     JBind :: JDist x y a -> (a -> JDist y z b) -> JDist  x z b
-    JPrimitive :: (Sampleable d, Scoreable d, Eq a) =>
+    JPrimitive :: (Ext.Distribution d a, Ext.PDF d a) =>
                   d a -> JDist (HList x) (HList (a ': x)) a
     JConditional :: (a -> Prob) -> JDist x y a -> JDist x y a
 
@@ -127,6 +133,12 @@ instance IxApplicative JDist where
 instance IxMonad JDist where
     ibind = flip JBind
 
+instance Bernoulli (JDist (HList x) (HList (Bool ': x))) where
+    bernoulli p = JPrimitive $ Bern.Bernoulli $ toDouble p
+
+instance Normal (JDist (HList x) (HList (Double ': x))) where
+    normal m s = JPrimitive $ Ext.Normal m s
+
 instance Conditional (JDist x y) where
     condition = JConditional
 
@@ -134,12 +146,12 @@ instance Sampleable (JDist x y) where
     sample g (JReturn x) = x
     sample g (JBind d f) = sample g1 $ f $ sample g2 d where
                                 (g1,g2) = split g
-    sample g (JPrimitive d) = sample g d
+    sample g (JPrimitive d) = fst $ Ext.sampleState d g
     sample g (JConditional c d) = error "Attempted to sample from a conditional distribution."
  
 
 marginal :: JDist x y a -> Dist a
 marginal (JReturn x) = return x
 marginal (JBind d f) = marginal d >>= (marginal . f)
-marginal (JPrimitive d) = Primitive d
+marginal (JPrimitive d) = external d
 marginal (JConditional c d) = Conditional c (marginal d)
