@@ -106,3 +106,20 @@ instance IxApplicative JDist where
 
 instance IxMonad JDist where
     ibind = flip JBind
+
+instance Conditional (JDist x y) where
+    condition = JConditional
+
+instance Sampleable (JDist x y) where
+    sample g (JReturn x) = x
+    sample g (JBind d f) = sample g1 $ f $ sample g2 d where
+                                (g1,g2) = split g
+    sample g (JPrimitive d) = sample g d
+    sample g (JConditional c d) = error "Attempted to sample from a conditional distribution."
+ 
+
+marginal :: JDist x y a -> Dist a
+marginal (JReturn x) = return x
+marginal (JBind d f) = marginal d >>= (marginal . f)
+marginal (JPrimitive d) = Primitive d
+marginal (JConditional c d) = Conditional c (marginal d)
