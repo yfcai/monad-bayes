@@ -6,7 +6,9 @@
     KindSignatures,
     TypeOperators,
     DataKinds,
-    FlexibleInstances
+    FlexibleInstances,
+    FlexibleContexts,
+    UndecidableInstances
     #-}
 
 module Dist where
@@ -114,12 +116,18 @@ instance Sampleable Dist where
 
 data JDist :: * -> * -> * where
     JReturn :: a -> JDist (HList '[])  a
-    JBind :: (HSplitAt n zs xs ys) =>
-             JDist (HList xs) a -> (a -> JDist (HList ys) b) ->
-             JDist (HList zs) b
+    JBind :: (HSplitAt n zs xs ys) => JDist (HList xs) a ->
+             (a -> JDist (HList ys) b) -> JDist (HList zs) b
     JPrimitive :: (Ext.Distribution d a, Ext.PDF d a) =>
                   d a -> JDist (HList (a ': '[])) a
     JConditional :: (a -> Prob) -> JDist x a -> JDist x a
+
+instance HSplitAt n xs xs '[] => Functor (JDist (HList xs)) where
+    fmap = jmap
+
+jmap :: HSplitAt n xs xs '[] =>
+        (a -> b) -> JDist (HList xs) a -> JDist (HList xs) b
+jmap f d = d `JBind` (JReturn . f)
 
 instance Bernoulli (JDist (HList (Bool ': '[]))) where
     bernoulli p = JPrimitive $ Bern.Bernoulli $ toDouble p
@@ -158,3 +166,5 @@ marginal (JReturn x) = return x
 marginal (JBind d f) = marginal d >>= (marginal . f)
 marginal (JPrimitive d) = external d
 marginal (JConditional c d) = Conditional c (marginal d)
+
+--propose :: JDist (HList y) (HList x) -> JDist (HList x) a -> JDist (HList y) a
