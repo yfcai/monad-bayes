@@ -184,10 +184,12 @@ linear = do
 ------------------------------------
 --JDist examples
 
+type J = HList ('[Double,Double])
+
 jbind1 :: HSplitAt (HSucc HZero) zs xs ys => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
 jbind1 = JBind
 
-sumg :: JDist (HList (Double ': Double ': '[])) Double
+sumg :: JDist J Double
 sumg =
     normal 0 1 `jbind1` \x ->
     normal 0 1 `jbind1` \y ->
@@ -201,3 +203,12 @@ sum_density = density sumg $ hBuild 1 2
 
 sum_marginal :: Dist Double
 sum_marginal = marginal sumg
+
+sum_proposal :: JDist J J
+sum_proposal =
+    normal 0 2 `jbind1` \x ->
+    normal 0 2 `jbind1` \y ->
+    JReturn (hBuild x y)
+
+sum_proposed :: JDist J Double
+sum_proposed = propose sum_proposal sumg

@@ -129,10 +129,10 @@ jmap :: HSplitAt n xs xs '[] =>
         (a -> b) -> JDist (HList xs) a -> JDist (HList xs) b
 jmap f d = d `JBind` (JReturn . f)
 
-instance Bernoulli (JDist (HList (Bool ': '[]))) where
+instance Bernoulli (JDist (HList '[Bool])) where
     bernoulli p = JPrimitive $ Bern.Bernoulli $ toDouble p
 
-instance Normal (JDist (HList (Double ': '[]))) where
+instance Normal (JDist (HList '[Double])) where
     normal m s = JPrimitive $ Ext.Normal m s
 
 instance Conditional (JDist x) where
@@ -167,4 +167,8 @@ marginal (JBind d f) = marginal d >>= (marginal . f)
 marginal (JPrimitive d) = external d
 marginal (JConditional c d) = Conditional c (marginal d)
 
---propose :: JDist (HList y) (HList x) -> JDist (HList x) a -> JDist (HList y) a
+propose :: (HSplitAt n xs xs '[]) => JDist (HList xs) (HList xs) ->
+           JDist (HList xs) a -> JDist (HList xs) a
+propose new old = fmap (eval old) $ condition c new where
+    c x = density old x / density new x
+
