@@ -28,7 +28,7 @@ import Control.Monad.Indexed
 import Base
 import Explicit hiding (djoin)
 import Sampler (external, StdSampler)
-import External
+import qualified External as Ext
 
 -- | A symbolic representation of a probabilistic program which basically remembers all applications of 'return' and '>>='.
 -- Formally a free model for a probability monad.
