@@ -1,7 +1,9 @@
 {-# LANGUAGE
  TupleSections,
  FlexibleInstances,
- FlexibleContexts
+ FlexibleContexts,
+ DataKinds,
+ TypeOperators
  #-}
 
 module Examples where
@@ -25,6 +27,8 @@ import Data.Random.Distribution (pdf)
 import Control.Monad (liftM, liftM2, mapM)
 import Data.List (partition, nub)
 import Data.Maybe (mapMaybe)
+import Data.HList
+import Data.Proxy
 
 -----------------------------------------------------
 --HMM
@@ -175,3 +179,27 @@ linear = do
   a <- normal 0 1
   b <- normal 0 1
   return (\x -> a*x + b)
+
+
+------------------------------------
+--JDist examples
+
+jbind1 :: HSplitAt (HSucc HZero) zs xs ys => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
+jbind1 = JBind Proxy
+jbind2 :: HSplitAt (HSucc (HSucc HZero)) zs xs ys => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
+jbind2 = JBind Proxy
+
+sumg :: JDist (HList (Double ': Double ': '[])) Double
+sumg =
+    normal 0 1 `jbind1` \x ->
+    normal 0 1 `jbind1` \y ->
+    JReturn (x+y)
+
+sum_result :: Double
+sum_result = eval sumg $ hBuild 1 2
+
+sum_density :: Prob
+sum_density = density sumg $ hBuild 1 2
+
+sum_marginal :: Dist Double
+sum_marginal = marginal sumg
