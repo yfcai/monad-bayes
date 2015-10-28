@@ -185,9 +185,7 @@ linear = do
 --JDist examples
 
 jbind1 :: HSplitAt (HSucc HZero) zs xs ys => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
-jbind1 = JBind Proxy
-jbind2 :: HSplitAt (HSucc (HSucc HZero)) zs xs ys => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
-jbind2 = JBind Proxy
+jbind1 = JBind
 
 sumg :: JDist (HList (Double ': Double ': '[])) Double
 sumg =

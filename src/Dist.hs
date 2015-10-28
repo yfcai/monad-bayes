@@ -114,7 +114,7 @@ instance Sampleable Dist where
 
 data JDist :: * -> * -> * where
     JReturn :: a -> JDist (HList '[])  a
-    JBind :: (HSplitAt n zs xs ys) => Proxy n ->
+    JBind :: (HSplitAt n zs xs ys) =>
              JDist (HList xs) a -> (a -> JDist (HList ys) b) ->
              JDist (HList zs) b
     JPrimitive :: (Ext.Distribution d a, Ext.PDF d a) =>
@@ -132,29 +132,29 @@ instance Conditional (JDist x) where
 
 instance Sampleable (JDist x) where
     sample g (JReturn x) = x
-    sample g (JBind _ d f) = sample g1 $ f $ sample g2 d where
+    sample g (JBind d f) = sample g1 $ f $ sample g2 d where
                               (g1,g2) = split g
     sample g (JPrimitive d) = fst $ Ext.sampleState d g
     sample g (JConditional c d) = error "Attempted to sample from a conditional distribution."
 
 eval :: JDist (HList x) a -> HList x -> a
 eval (JReturn a) _ = a
-eval (JBind n d f) xs = f (eval d xs1) `eval` xs2
-    where (xs1,xs2) = hSplitAt n xs 
+eval (JBind d f) xs = f (eval d xs1) `eval` xs2
+    where (xs1,xs2) = hSplitAt Proxy xs 
 eval (JPrimitive d) xs = hHead xs
 eval (JConditional c d) xs = eval d xs
 
 
 density :: JDist (HList x) a -> HList x -> Prob
 density (JReturn _) _  = 1
-density (JBind n d f) xs = density d xs1 * density (f x) xs2 where
-    (xs1,xs2) = hSplitAt n xs
+density (JBind d f) xs = density d xs1 * density (f x) xs2 where
+    (xs1,xs2) = hSplitAt Proxy xs
     x = eval d xs1
 density (JPrimitive d) xs = prob $ Ext.pdf d (hHead xs)
 density (JConditional c d) xs = c (eval d xs) * density d xs
 
 marginal :: JDist x a -> Dist a
 marginal (JReturn x) = return x
-marginal (JBind _ d f) = marginal d >>= (marginal . f)
+marginal (JBind d f) = marginal d >>= (marginal . f)
 marginal (JPrimitive d) = external d
 marginal (JConditional c d) = Conditional c (marginal d)
