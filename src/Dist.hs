@@ -116,16 +116,18 @@ instance Sampleable Dist where
 
 data JDist :: * -> * -> * where
     JReturn :: a -> JDist (HList '[])  a
-    JBind :: (HSplitAt n zs xs ys) => JDist (HList xs) a ->
+    JBind :: (HSplitAt n zs xs ys, zs ~ HAppendListR xs ys, HAppendList xs ys) =>
+             JDist (HList xs) a ->
              (a -> JDist (HList ys) b) -> JDist (HList zs) b
     JPrimitive :: (Ext.Distribution d a, Ext.PDF d a) =>
                   d a -> JDist (HList (a ': '[])) a
     JConditional :: (a -> Prob) -> JDist x a -> JDist x a
 
-instance HSplitAt n xs xs '[] => Functor (JDist (HList xs)) where
-    fmap = jmap
+instance (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
+    Functor (JDist (HList xs)) where
+        fmap = jmap
 
-jmap :: HSplitAt n xs xs '[] =>
+jmap :: (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
         (a -> b) -> JDist (HList xs) a -> JDist (HList xs) b
 jmap f d = d `JBind` (JReturn . f)
 
@@ -167,7 +169,18 @@ marginal (JBind d f) = marginal d >>= (marginal . f)
 marginal (JPrimitive d) = external d
 marginal (JConditional c d) = Conditional c (marginal d)
 
-propose :: (HSplitAt n xs xs '[]) => JDist (HList xs) (HList xs) ->
+joint :: JDist (HList xs) a -> Dist (HList xs)
+joint (JReturn x) = return HNil
+joint (JBind d f) = do
+  xs <- joint d
+  let x = eval d xs
+  ys <- joint (f x)
+  return $ hAppendList xs ys
+joint (JPrimitive d) = fmap hBuild (external d)
+joint (JConditional c d) = Conditional (c . eval d) (joint d)
+
+propose :: (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
+           JDist (HList xs) (HList xs) ->
            JDist (HList xs) a -> JDist (HList xs) a
 propose new old = fmap (eval old) $ condition c new where
     c x = density old x / density new x

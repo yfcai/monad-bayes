@@ -3,7 +3,8 @@
  FlexibleInstances,
  FlexibleContexts,
  DataKinds,
- TypeOperators
+ TypeOperators,
+ TypeFamilies
  #-}
 
 module Examples where
@@ -186,7 +187,7 @@ linear = do
 
 type J = HList ('[Double,Double])
 
-jbind1 :: HSplitAt (HSucc HZero) zs xs ys => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
+jbind1 :: (HSplitAt (HSucc HZero) zs xs ys, zs ~ HAppendListR xs ys, HAppendList xs ys) => JDist (HList xs) a -> (a -> JDist (HList ys) b) -> JDist (HList zs) b
 jbind1 = JBind
 
 sumg :: JDist J Double
@@ -203,6 +204,9 @@ sum_density = density sumg $ hBuild 1 2
 
 sum_marginal :: Dist Double
 sum_marginal = marginal sumg
+
+sum_joint :: Dist (HList '[Double,Double])
+sum_joint = joint sumg
 
 sum_proposal :: JDist J J
 sum_proposal =
