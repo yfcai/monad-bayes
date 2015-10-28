@@ -19,9 +19,14 @@ import Control.Applicative (Applicative, pure, (<*>))
 import Control.Arrow (first, second)
 import Control.Monad (liftM, liftM2)
 import Data.Proxy
+import Data.Tuple
 
 import qualified Data.Random as Ext
 import qualified Data.Random.Distribution.Bernoulli as Bern
+import qualified Data.Random.Distribution.Categorical as Cat
+import qualified Data.Random.Distribution.Exponential as Exp
+import qualified Data.Random.Distribution.Gamma as Gamma
+import qualified Data.Random.Distribution.Beta as Beta
 
 import Data.HList.HList
 import Control.Monad.Indexed
@@ -132,11 +137,33 @@ jmap :: (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
         (a -> b) -> JDist (HList xs) a -> JDist (HList xs) b
 jmap f d = d `JBind` (JReturn . f)
 
+instance Eq a => Dirac a (JDist (HList '[a])) where
+    dirac = JPrimitive . Ext.Dirac
+
 instance Bernoulli (JDist (HList '[Bool])) where
     bernoulli p = JPrimitive $ Bern.Bernoulli $ toDouble p
 
+instance Eq a => UniformD a (JDist (HList '[a])) where
+    uniformd xs = categorical $ map (,1) xs
+
+instance Eq a => Categorical a (JDist (HList '[a])) where
+    categorical xs =
+        JPrimitive $ Cat.fromWeightedList $ map (swap . second toDouble) xs
+
 instance Normal (JDist (HList '[Double])) where
     normal m s = JPrimitive $ Ext.Normal m s
+
+instance UniformC (JDist (HList '[Double])) where
+    uniformc a b = JPrimitive $ Ext.Uniform a b
+
+instance Exponential (JDist (HList '[Double])) where
+    exponential = JPrimitive . Exp.Exp
+
+instance Gamma (JDist (HList '[Double])) where
+    gamma a b = JPrimitive $ Gamma.Gamma a b
+
+instance Beta (JDist (HList '[Double])) where
+    beta a b = JPrimitive $ Beta.Beta a b
 
 instance Conditional (JDist x) where
     condition = JConditional

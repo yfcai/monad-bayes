@@ -24,6 +24,8 @@ library
                      , random-fu
                      , HList
                      , indexed
+                     , gamma
+                     , numeric-limits
   default-language:    Haskell2010
 
 test-suite monad-bayes-test
