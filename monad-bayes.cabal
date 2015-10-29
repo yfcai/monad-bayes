@@ -26,6 +26,8 @@ library
                      , indexed
                      , gamma
                      , numeric-limits
+                     , hmatrix
+
   default-language:    Haskell2010
 
 test-suite monad-bayes-test
