@@ -22,6 +22,8 @@ library
                      , random
                      , random-fu
                      , monad-param
+                     , hmatrix
+
   default-language:    Haskell2010
 
 test-suite monad-bayes-test

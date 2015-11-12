@@ -1,4 +1,8 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE
+  TupleSections,
+  MultiParamTypeClasses,
+  FlexibleInstances
+ #-}
 
 module Explicit where
 
@@ -46,7 +50,16 @@ instance Foldable Explicit where
 instance Traversable Explicit where
     sequenceA (Explicit ys) = liftA Explicit $ sequenceA $ fmap (\(d,p) -> liftA (,p) d) ys
 
-instance DiscreteDist Explicit where
+instance Dirac a Explicit where
+    dirac = return
+
+instance Bernoulli Explicit where
+    bernoulli p = Explicit [(True,p), (False,1-p)]
+
+instance UniformD a Explicit where
+    uniformd xs = Explicit $ normalize $ map (,1) xs
+
+instance Categorical a Explicit where
     categorical = Explicit . normalize
 
 instance Conditional Explicit where
@@ -57,10 +70,13 @@ instance Sampleable Explicit where
         pick xs $ fst $ randomR (0.0,1.0) g
 
 instance Scoreable Explicit where
-    score (Explicit xs) x =
-        case lookup x xs of
-          Just p -> p
-          Nothing -> 0
+    score (Explicit xs) x = sum $ map snd $ filter ((== x) . fst) $ xs
+
+instance Density Explicit where
+    density = score
+
+instance Cumulative Explicit where
+    cdf (Explicit xs) x = sum $ map snd $ filter ((<= x) . fst) $ xs
 
 ---------------------------------------------------
 -- Some useful functions
@@ -84,42 +100,9 @@ compact (Explicit xs) =
     distinct = nub $ map fst xs
     p x = sum $ map snd $ filter ((== x) . fst) xs
 
-kl :: Eq a => Explicit a -> Explicit a -> Double
--- | Computes the Kullback-Leibler divergence between two distributions.
--- Generality comes with a quadratic time cost.
-kl d d' =
-  sum $ map f xs where
-    xs = toList $ compact d
-    ys = toList $ compact d'
-    f (x,p) = case find ((== x) . fst) ys of
-      Just (y,q) -> toDouble p * (toLog p - toLog q)
-      Nothing -> error "Undefined KL divergence - q is 0 when p is not"
-
 fastCompact :: Ord a => Explicit a -> Explicit a
 -- | Faster version of 'compact' for ordered types.
 -- Internally uses a 'Map' to achieve O(n log n) runtime.
 -- Returns an ascending list.
 fastCompact = Explicit . Map.toAscList . Map.fromListWith (+) . toList
 
-fastKL :: Ord a => Explicit a -> Explicit a -> Double
--- | Faster version of 'kl' for ordered types.
--- Internally uses a 'Map' to achieve O(n log n) runtime.
-fastKL d d' =
-  scan xs ys where
-    xs = toList $ fastCompact d
-    ys = toList $ fastCompact d'
-    scan [] _ = 0
-    scan ((x,p):xs) ((y,q):ys) =
-      if x == y then
-      toDouble p * (toLog p - toLog q) + scan xs ys
-      else scan((x,p):xs) ys
-    scan xs [] = error "Undefined KL divergence - q is 0 when p is not"
-
-kl' :: Ord a => (a -> Prob) -> Explicit a -> Double
--- | Fast KL with an external function computing the reference probabilities.
-kl' reference d = if result < 0 then error "Negative KL" else result where
-    result = sum $ map component $ toList $ fastCompact d where
-        component (x,p) = toDouble p * (toLog p - toLog q) where
-            q' = reference x
-            q  = if q' == 0 then error "Undefined KL divergence - q is 0 when p is not"
-                 else q'

@@ -1,17 +1,17 @@
-
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE
+  GADTs,
+  TupleSections,
+  ScopedTypeVariables,
+  MultiParamTypeClasses,
+  FlexibleInstances,
+  RebindableSyntax
+ #-}
 
 module Dist where
 
 import Prelude hiding ((>>=))
 
 import System.Random
-import Data.Random.Distribution.Beta (Beta(Beta))
-import Data.Random.Distribution.Exponential (Exponential(Exp))
-import qualified Data.Random as Ext
 import Control.Applicative (Applicative, pure, (<*>))
 import Control.Arrow (first, second)
 import qualified Control.Monad
@@ -19,7 +19,7 @@ import Control.Monad.Parameterized (Return, returnM, Bind, (>>=), liftM, liftM2)
 
 import Base
 import Explicit hiding (djoin)
-import Sampler (external)
+import Sampler (external, StdSampler)
 
 -- | A symbolic representation of a probabilistic program which basically remembers all applications of 'return' and '>>='.
 -- Formally a free model for a probability monad.
@@ -43,20 +43,42 @@ instance Monad Dist where
     return = Return
     (>>=)  = Bind
 
+
 instance Return Dist where
   returnM = Return
 
 instance Bind Dist Dist Dist where
   (>>=) = Bind
 
-instance DiscreteDist Dist where
-    categorical = Primitive . (categorical :: [(a,Prob)] -> Explicit a)
 
-instance ContinuousDist Dist where
-    normal m s     = external $ Ext.Normal m s
-    gamma  k t     = external $ Ext.Gamma  k t
-    beta   a b     = external $ Beta       a b
-    exponential  l = external $ Exp        l
+instance Dirac a Dist where
+    dirac = return
+
+instance Bernoulli Dist where
+    bernoulli p = Primitive (bernoulli p :: StdSampler Bool)
+
+instance UniformD a Dist where
+    uniformd = Primitive . (uniformd :: [a] -> StdSampler a)
+
+instance Categorical a Dist where
+    categorical = Primitive . (categorical :: [(a,Prob)] -> StdSampler a)
+
+instance Normal Dist where
+    normal m s     = Primitive (normal m s :: StdSampler Double)
+
+instance UniformC Dist where
+    uniformc a b = Primitive (uniformc a b :: StdSampler Double)
+
+instance Exponential Dist where
+    exponential l = Primitive (exponential l :: StdSampler Double)
+
+instance Gamma Dist where
+    gamma a b = Primitive (gamma a b :: StdSampler Double)
+
+instance Beta Dist where
+    beta a b = Primitive (beta a b :: StdSampler Double)
+
+
 
 instance Sampler Dist where
     sampler = Primitive
@@ -87,15 +109,33 @@ instance Bind CDist Dist CDist where
   (>>=) = CBind
 
 
+instance Dirac a CDist where
+    dirac = Pure . dirac
 
-instance DiscreteDist CDist where
-  categorical = Pure . categorical
+instance Bernoulli CDist where
+    bernoulli = Pure . bernoulli
 
-instance ContinuousDist CDist where
-  normal m s     = Pure $ normal m s
-  gamma  k t     = Pure $ gamma k t
-  beta   a b     = Pure $ beta a b
-  exponential  l = Pure $ exponential l
+instance UniformD a CDist where
+    uniformd = Pure . uniformd
+
+instance Categorical a CDist where
+    categorical = Pure . categorical
+
+instance Normal CDist where
+    normal m s = Pure $ normal m s
+
+instance UniformC CDist where
+    uniformc a b = Pure $ uniformc a b
+
+instance Exponential CDist where
+    exponential = Pure . exponential
+
+instance Gamma CDist where
+    gamma a b = Pure $ gamma a b
+
+instance Beta CDist where
+    beta a b = Pure $ beta a b
+
 
 instance Conditional CDist where
   condition = Conditional

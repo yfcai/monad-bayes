@@ -1,6 +1,7 @@
-
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE RebindableSyntax #-}
+{-# LANGUAGE
+  TupleSections,
+  RebindableSyntax
+ #-}
 
 module SMC where
 
