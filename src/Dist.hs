@@ -96,7 +96,7 @@ data CDist a where
     Pure        :: Dist a -> CDist a
     -- Application of a function to a random variable.
     CBind        :: CDist b -> (b -> Dist a) -> CDist a
-    -- A primitive distribution that can be sampled from.
+    -- Conditioning with explicit likelihood function.
     Conditional :: (a -> Prob) -> CDist a -> CDist a
 
 instance Functor CDist where
