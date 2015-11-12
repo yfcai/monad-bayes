@@ -27,9 +27,9 @@ import Sampler (external, StdSampler)
 data Dist a where
     -- One element degenerate distribution.
     Return      :: a -> Dist a
-    -- Application of a function to a random variable.
+    -- Marginalization.
     Bind        :: Dist b -> (b -> Dist a) -> Dist a
-    -- A primitive distribution that can be sampled from.
+    -- Primitive that can be sampled from.
     Primitive   :: (Sampleable d) => d a -> Dist a
 
 instance Functor Dist where
