@@ -132,11 +132,11 @@ instance Sampleable Dist where
 
 data JDist :: * -> * -> * where
     JReturn :: a -> JDist (HList '[])  a
-    JBind :: (HSplitAt n zs xs ys, zs ~ HAppendListR xs ys, HAppendList xs ys) =>
-             JDist (HList xs) a ->
+    JBind :: (HSplitAt n zs xs ys, zs ~ HAppendListR xs ys,
+              HAppendList xs ys) => JDist (HList xs) a ->
              (a -> JDist (HList ys) b) -> JDist (HList zs) b
     JPrimitive :: (Ext.Distribution d a, Ext.PDF d a) =>
-                  d a -> JDist (HList (a ': '[])) a
+                  d a -> JDist (HList ('[a])) a
     JConditional :: (a -> Prob) -> JDist x a -> JDist x a
 
 instance (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
