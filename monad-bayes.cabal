@@ -23,7 +23,7 @@ library
                      , random
                      , random-fu
                      , HList
-                     , indexed
+                     , monad-param
                      , gamma
                      , numeric-limits
                      , hmatrix

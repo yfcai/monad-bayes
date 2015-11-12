@@ -8,7 +8,7 @@ packages:
 - '.'
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
-extra-deps: [HList-0.4.1.0, indexed-0.1,
+extra-deps: [HList-0.4.1.0, monad-param-0.0.4,
              continued-fractions-0.9.1.1, converge-0.1.0.1, gamma-0.9.0.2,
              numeric-limits-0.1.0.0]
 

@@ -9,10 +9,14 @@
     FlexibleContexts,
     UndecidableInstances,
     MultiParamTypeClasses,
-    FlexibleInstances
+    FlexibleInstances,
+    RebindableSyntax
     #-}
 
 module Dist where
+
+import Prelude hiding (return, (>>=), Monad, fail)
+import qualified Prelude
 
 import System.Random
 import Control.Applicative (Applicative, pure, (<*>))
@@ -29,7 +33,7 @@ import qualified Data.Random.Distribution.Gamma as Gamma
 import qualified Data.Random.Distribution.Beta as Beta
 
 import Data.HList.HList
-import Control.Monad.Indexed
+import Control.Monad.Parameterized
 
 import Base
 import Explicit hiding (djoin)
@@ -53,15 +57,21 @@ instance Functor Dist where
     fmap  = liftM
 
 instance Applicative Dist where
-    pure  = return
+    pure  = Return
     (<*>) = liftM2 ($)
 
-instance Monad Dist where
-    return = Return
-    (>>=)  = Bind
+instance Prelude.Monad Dist where
+     return = Return
+     (>>=)  = Bind
+
+instance Return Dist where
+    returnM = Return
+
+instance Bind Dist Dist Dist where
+    (>>=) = Bind
 
 instance Dirac a Dist where
-    dirac = return
+    dirac = Return
 
 instance Bernoulli Dist where
     bernoulli p = Primitive (bernoulli p :: StdSampler Bool)
@@ -131,11 +141,20 @@ data JDist :: * -> * -> * where
 
 instance (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
     Functor (JDist (HList xs)) where
-        fmap = jmap
+        fmap f d = d `JBind` (JReturn . f)
 
 jmap :: (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
         (a -> b) -> JDist (HList xs) a -> JDist (HList xs) b
-jmap f d = d `JBind` (JReturn . f)
+jmap = fmap
+
+instance Return (JDist (HList '[])) where
+    returnM = JReturn
+
+instance (HSplitAt n zs xs ys, zs ~ HAppendListR xs ys, HAppendList xs ys,
+          Functor (JDist (HList xs)), Functor (JDist (HList ys)),
+          Functor (JDist (HList zs))) =>
+    Bind (JDist (HList xs)) (JDist (HList ys)) (JDist (HList zs)) where
+        (>>=) = JBind
 
 instance Eq a => Dirac a (JDist (HList '[a])) where
     dirac = JPrimitive . Ext.Dirac
@@ -183,22 +202,22 @@ eval (JPrimitive d) xs = hHead xs
 eval (JConditional c d) xs = eval d xs
 
 
-density :: JDist (HList x) a -> HList x -> Prob
-density (JReturn _) _  = 1
-density (JBind d f) xs = density d xs1 * density (f x) xs2 where
+density' :: JDist (HList x) a -> HList x -> Prob
+density' (JReturn _) _  = 1
+density' (JBind d f) xs = density' d xs1 * density' (f x) xs2 where
     (xs1,xs2) = hSplitAt Proxy xs
     x = eval d xs1
-density (JPrimitive d) xs = prob $ Ext.pdf d (hHead xs)
-density (JConditional c d) xs = c (eval d xs) * density d xs
+density' (JPrimitive d) xs = prob $ Ext.pdf d (hHead xs)
+density' (JConditional c d) xs = c (eval d xs) * density' d xs
 
 marginal :: JDist x a -> Dist a
-marginal (JReturn x) = return x
+marginal (JReturn x) = pure x
 marginal (JBind d f) = marginal d >>= (marginal . f)
 marginal (JPrimitive d) = external d
 marginal (JConditional c d) = Conditional c (marginal d)
 
 joint :: JDist (HList xs) a -> Dist (HList xs)
-joint (JReturn x) = return HNil
+joint (JReturn x) = pure HNil
 joint (JBind d f) = do
   xs <- joint d
   let x = eval d xs
@@ -211,5 +230,5 @@ propose :: (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) 
            JDist (HList xs) (HList xs) ->
            JDist (HList xs) a -> JDist (HList xs) a
 propose new old = fmap (eval old) $ condition c new where
-    c x = density old x / density new x
+    c x = density' old x / density' new x
 
