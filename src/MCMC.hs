@@ -9,6 +9,7 @@ import Dist
 import SMC hiding (normalize)
 import Importance
 
+import Data.HList.HList
 import Control.Monad (liftM)
 
 -- | Metropolis-Hastings algorithm proposing values from the prior.
@@ -38,3 +39,26 @@ pimh n = mh . smc n
 
 pimh' :: Int -> Int -> Dist a -> Dist a
 pimh' k n = mh' k . smc' n
+
+
+--------------------------
+-- Custom MCMC kernels
+
+custom_mh :: JDist (HList x) a -> (HList x -> JDist (HList y) (HList x)) -> Dist [a]
+custom_mh target kernel = fmap (map (eval target . snd)) (first >>= chain) where
+  --trans :: HList x -> Dist (HList y, HList x)
+  trans a = let d = kernel a in fmap (\y -> (y, eval d y)) (joint d)
+  --first :: Dist (HList y, HList x)
+  first = joint target >>= trans
+  --chain :: (HList y, HList x) -> Dist [(HList y, HList x)]
+  chain (y,x) = do
+    let prop_dist = kernel x
+    (y',x') <- trans x
+    let rev_dist = kernel x'
+    let q = density' target x' * density' rev_dist y' /
+            (density' target x' * density' prop_dist y)
+    accept <- bernoulli (max 1 q)
+    let next = if accept then (y',x') else (y,x)
+    rest <- chain next
+    return (next : rest)
+  
