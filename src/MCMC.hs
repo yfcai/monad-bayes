@@ -52,11 +52,9 @@ custom_mh target kernel = fmap (map (eval target . snd)) (first >>= chain) where
   first = joint target >>= trans
   --chain :: (HList y, HList x) -> Dist [(HList y, HList x)]
   chain (y,x) = do
-    let prop_dist = kernel x
     (y',x') <- trans x
-    let rev_dist = kernel x'
-    let q = density' target x' * density' rev_dist y' /
-            (density' target x' * density' prop_dist y)
+    let q = density' target x' * density' (kernel x') y /
+            (density' target x' * density' (kernel x) y')
     accept <- bernoulli (max 1 q)
     let next = if accept then (y',x') else (y,x)
     rest <- chain next
