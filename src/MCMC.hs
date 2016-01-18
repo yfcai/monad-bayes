@@ -2,7 +2,7 @@
   TupleSections
  #-}
 
-module MCMC (mh, pimh) where
+module MCMC (mh, pimh, custom_mh) where
 
 import Base
 import Dist

@@ -169,7 +169,7 @@ instance Eq a => Categorical a (JDist (HList '[a])) where
     categorical xs =
         JPrimitive $ Cat.fromWeightedList $ map (swap . second toDouble) xs
 
-instance Normal (JDist (HList '[Double])) where
+instance (a ~ HList '[Double]) => Normal (JDist a) where
     normal m s = JPrimitive $ Ext.Normal m s
 
 instance UniformC (JDist (HList '[Double])) where
@@ -226,9 +226,31 @@ joint (JBind d f) = do
 joint (JPrimitive d) = fmap hBuild (external d)
 joint (JConditional c d) = Conditional (c . eval d) (joint d)
 
+-- latent :: JDist (HList xs) a -> JDist (HList xs) (HList xs)
+-- latent (JReturn x) = JReturn HNil
+-- latent (JBind d f) =
+--   latent d `JBind` \xs ->
+--   let x = eval d xs in
+--   latent (f x) `JBind` \ys ->
+--   JReturn $ hAppendList xs ys
+
 propose :: (HSplitAt n xs xs '[], xs ~ HAppendListR xs '[], HAppendList xs '[]) =>
            JDist (HList xs) (HList xs) ->
            JDist (HList xs) a -> JDist (HList xs) a
 propose new old = fmap (eval old) $ condition c new where
     c x = density' old x / density' new x
 
+example :: JDist (HList '[Double,Double]) Double
+example = do
+  x <- (normal 0 1 :: JDist (HList '[Double]) Double)
+  y <- (normal x 1 :: JDist (HList '[Double]) Double)
+  return (x+y)
+
+example' :: JDist (HList '[Double,Double]) Double
+example' =
+  normal 0 1 `JBind` \x ->
+  normal x 1 `JBind` \y ->
+  JReturn x
+
+xs :: HList '[Double,Double]
+xs = hBuild 1 2
