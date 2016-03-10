@@ -75,36 +75,47 @@ data MHReuseLog = MHReuseLog
   , mhResampled :: Int
   }
 
+instance Monoid MHReuseLog where
+  mempty = MHReuseLog 0 0 0
+  mappend (MHReuseLog o n r) (MHReuseLog o' n' r') = MHReuseLog (o + o') (n + n') (r + r')
+
 mhKernelWithReuseLog' :: (RandomDB r, MonadDist m) =>
-                         r -> UpdaterT r m a -> MHKernel (WriterT [MHReuseLog] m) (a, r)
+                         r -> UpdaterT r m a -> MHKernel (WriterT MHReuseLog m) (a, r)
 mhKernelWithReuseLog' = const mhKernelWithReuseLog
 
 mhKernelWithReuseLog :: (RandomDB r, MonadDist m) =>
-                        UpdaterT r m a -> MHKernel (WriterT [MHReuseLog] m) (a, r)
+                        UpdaterT r m a -> MHKernel (WriterT MHReuseLog m) (a, r)
 mhKernelWithReuseLog program = MHKernel $ \(x, r) -> do
   r1 <- lift $ mutate r
   ((x', r'), leftover) <- lift $ runUpdaterT program r1
-  tell [MHReuseLog (size r) (size r') (size $ resampled r r')]
+  tell $ MHReuseLog (size r) (size r') (size $ resampled r r')
   return ((x', r'), mhCorrectionFactor r r')
 
 -- | Log of acceptance ratios of one Metropolis-Hastings step
 data MHAcceptLog = MHAcceptLog
-  { mhAccepted :: Bool
-  , mhAcceptanceRatio :: LogFloat
+  { mhAccepted :: Int
+  , mhTotalSteps :: Int
+  , mhAcceptanceRatio :: Double
   }
+
+instance Monoid MHAcceptLog where
+  mempty = MHAcceptLog 0 0 0
+  mappend (MHAcceptLog _ 0 _) r = r
+  mappend (MHAcceptLog a n r) (MHAcceptLog a' n' r') =
+    MHAcceptLog (a + a') (n + n') ((r * fromIntegral n + r' * fromIntegral n') / fromIntegral (n + n'))
 
 -- | Execute Metropolis-Hastings algorithm, keep track of acceptance ratio
 -- and other statistics.
 mhWithAcceptLog :: forall m a. (MonadDist m) =>
-                   Int ->  WeightedT m a -> MHKernel (WeightedT m) a -> WriterT [MHAcceptLog] m [a]
+                   Int ->  WeightedT m a -> MHKernel (WeightedT m) a -> WriterT MHAcceptLog m [a]
 mhWithAcceptLog n init trans = evalStateT (start >>= chain n) 1 where
-  start :: StateT LogFloat (WriterT [MHAcceptLog] m) a
+  start :: StateT LogFloat (WriterT MHAcceptLog m) a
   start = do
     (x, p) <- lift $ lift $ runWeightedT init
     put p
     return x
 
-  chain :: Int -> a -> StateT LogFloat (WriterT [MHAcceptLog] m) [a]
+  chain :: Int -> a -> StateT LogFloat (WriterT MHAcceptLog m) [a]
   chain 0 _ = return []
   chain n x = do
     p <- get
@@ -113,7 +124,7 @@ mhWithAcceptLog n init trans = evalStateT (start >>= chain n) 1 where
     accept <- bernoulli ratio
     let next = if accept then y else x
     when accept (put q)
-    lift $ tell [MHAcceptLog accept ratio]
+    lift $ tell (MHAcceptLog (if accept then 1 else 0) 1 (fromLogFloat ratio))
     rest <- chain (n-1) next
     return (x:rest)
 
@@ -129,15 +140,15 @@ mh' :: (RandomDB r, MonadDist m) => r -> Int -> (forall m'. (MonadBayes m') => m
 mh' r0 n program = fmap (map fst) $ mh n (runTraceT program) $ mhKernel' r0 program
 
 mhWithStats :: forall r m a. (RandomDB r, MonadDist m) =>
-               r -> Int -> WeightedT (WriterT [MHReuseLog] m) (a, r) ->
-                           MHKernel (WeightedT (WriterT [MHReuseLog] m)) (a, r) ->
-                           m ([a], [MHAcceptLog], [MHReuseLog])
+               r -> Int -> WeightedT (WriterT MHReuseLog m) (a, r) ->
+                           MHKernel (WeightedT (WriterT MHReuseLog m)) (a, r) ->
+                           m ([a], MHAcceptLog, MHReuseLog)
 mhWithStats r0 n init trans =
   fmap (\((results, accepts), reuses) -> (map fst results, accepts, reuses))
        (runWriterT $ runWriterT $ mhWithAcceptLog n init trans)
 
 mhWithStats' :: forall r m a. (RandomDB r, MonadDist m) =>
-                r -> Int -> (forall m'. (MonadBayes m') => m' a) -> m ([a], [MHAcceptLog], [MHReuseLog])
+                r -> Int -> (forall m'. (MonadBayes m') => m' a) -> m ([a], MHAcceptLog, MHReuseLog)
 mhWithStats' r0 n program =
   mhWithStats r0 n (runTraceT program) $
     MHKernel $ pullOutWeightedT . runMHKernel (mhKernelWithReuseLog' r0 program)

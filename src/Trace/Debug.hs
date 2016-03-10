@@ -52,22 +52,18 @@ sampleMany sampler seed size = sample (sequence $ replicate size $ sampler) (mkS
 
 mhDebugHistogram :: (RandomDB r) => Histo -> (forall m. (MonadBayes m) => m Double) -> r -> Int -> Int -> IO ()
 mhDebugHistogram histo p r0 seed steps = do
-  let (samples, accepts, reuses) = sample (mhWithStats' r0 steps p) (mkStdGen seed)
+  let (samples, acceptance, reuse) = sample (mhWithStats' r0 steps p) (mkStdGen seed)
 
-  let totalSampled = length samples
-
-  assert (steps == totalSampled) $
-    assert (steps == length accepts) $
-    assert (steps == length reuses) $
+  assert (steps == length samples) $
+    assert (steps == mhTotalSteps acceptance) $
     histogram histo samples
 
-  let meanRatio = sum (map (fromLogFloat . mhAcceptanceRatio) accepts) / fromIntegral totalSampled
+  let meanRatio = mhAcceptanceRatio acceptance
 
-  let totalAccepted = length (filter mhAccepted accepts)
-  let acceptRate = fromIntegral totalAccepted / fromIntegral totalSampled :: Double
+  let acceptRate = fromIntegral (mhAccepted acceptance) / fromIntegral steps :: Double
 
-  let totalNewSize = sum $ map mhNewSize reuses
-  let totalResampled = sum $ map mhResampled reuses
+  let totalNewSize = mhNewSize reuse
+  let totalResampled = mhResampled reuse
   let totalReused = totalNewSize - totalResampled
   let reuseRate = fromIntegral totalReused / fromIntegral totalNewSize :: Double
 
@@ -121,7 +117,7 @@ histogram (Histo xmin step xmax ymax cols) xs0 =
 -- Successive lines in do-notation generates right-skewed trace.
 -- Example:
 --
---   mhDebugHistogram (Histo 1.125 0.25 8.875 0.5 60) gaussians ([]::[Cache]) 0 2000
+--   mhDebugHistogram (Histo 1.125 0.25 8.875 0.5 60) gaussians ([]::[Cache]) 0 4000
 --
 gaussians :: MonadDist m => m Double
 gaussians = do
@@ -132,7 +128,7 @@ gaussians = do
 -- Nested do-notation generates left-subtrees.
 -- Example:
 --
---   mhDebugHistogram (Histo 0.5125 0.025 1.0875 12 60) deps ([]::[Cache]) 0 2000
+--   mhDebugHistogram (Histo 0.5125 0.025 1.0875 12 60) deps ([]::[Cache]) 0 4000
 --
 deps :: MonadDist m => m Double
 deps = do
@@ -145,7 +141,9 @@ deps = do
 -- Program with a variable number of random choices.
 -- Example:
 --
---   mhDebugHistogram (Histo (-2.5) 1 27.5 0.35 60) varChoices 0 20000
+--   mhDebugHistogram (Histo (-2.5) 1 27.5 0.35 60) varChoices ([]::[Cache]) 0 4000
+--   mhDebugHistogram (Histo (-2.5) 1 27.5 0.35 60) varChoices (ByDist []) 0 4000
+--   mhDebugHistogram (Histo (-2.5) 1 27.5 0.35 60) varChoices (ByType []) 0 4000
 --   histogram (Histo (-2.5) 1 27.5 0.35 60) $ sampleMany varChoices 0 20000
 --
 -- Rate of reuse is low because the program makes 1 to 3 random choices
@@ -174,7 +172,8 @@ varChoices = do
 --
 -- Examples:
 --
---   mhDebugHistogram (Histo (-4.25) 0.25 19.25 0.5 60) fig8b ([]::[Cache]) 0 2000
+--   mhDebugHistogram (Histo (-4.25) 0.25 19.25 0.5 60) fig8b ([]::[Cache]) 0 4000
+--   mhDebugHistogram (Histo (-4.25) 0.25 19.25 0.5 60) fig8b (ByDist []) 0 4000
 --   histogram (Histo (-4.25) 0.25 19.25 0.5 60) $ sampleMany fig8b 0 10000
 --
 fig8b :: MonadDist m => m Double
@@ -193,7 +192,8 @@ fig8b = do
 --
 -- Examples:
 --
---   mhDebugHistogram (Histo (-0.5) 1.0 1.5 1.0 60) grassModel ([]::[Cache]) 0 2000
+--   mhDebugHistogram (Histo (-0.5) 1.0 1.5 1.0 60) grassModel ([]::[Cache]) 0 4000
+--   mhDebugHistogram (Histo (-0.5) 1.0 1.5 1.0 60) grassModel (ByDist []) 0 4000
 --   enumerate grassModel -- after import Dist; expect P[0]=0.53, P[1]=0.47
 --
 grassModel :: MonadBayes m => m Double
