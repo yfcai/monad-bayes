@@ -1,4 +1,5 @@
 {-# LANGUAGE
+  GADTs,
   Rank2Types
  #-}
 
@@ -9,13 +10,15 @@ module Trace.Debug where
 -----------------------
 
 import Control.Monad
-import Data.List (unfoldr)
+import Data.List (unfoldr, intercalate)
 import Data.Number.LogFloat hiding (sum)
+import Data.Typeable
 import System.Random
 import Text.Printf
 
 import Base
 import Inference
+import Primitive
 import Sampler
 import Trace
 
@@ -27,6 +30,19 @@ mhRun = mhRunWith ByTime.empty
 
 mhRunWith :: (RandomDB r) => r -> (forall m. (MonadBayes m) => m a) -> Int -> Int -> [a]
 mhRunWith r p seed steps = sample (mh' r steps p) (mkStdGen seed)
+
+-- Print Cache for debugging
+instance Show Cache where
+  show (Cache (Normal m s) x) = printf "[%.3f<-N%.3f|%.3f]" x m s
+  show (Cache (Gamma  a b) x) = printf "[%.3f<-G%.3f|%.3f]" x a b
+  show (Cache (Beta   a b) x) = printf "[%.3f<-B%.3f|%.3f]" x a b
+  -- print Booleans for debugging
+  show (Cache (Categorical ps) x) =
+    case cast (x, ps) :: Maybe (Bool, [(Bool, LogFloat)]) of
+      Nothing      -> "[cat(" ++ (tail $ init $ show $ map snd ps) ++ ")]"
+      Just (x, ps) -> "[" ++ show x ++ "<-(" ++
+                         (intercalate "," $ map (\(b,p) -> head (show b) : printf "%.3f" (fromLogFloat p)) ps)
+                         ++ ")]"
 
 -- Run a sampler many times to produce many samples.
 -- A reference to check MH against.
