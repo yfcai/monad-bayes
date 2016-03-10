@@ -1,5 +1,6 @@
 {-# LANGUAGE
-  GeneralizedNewtypeDeriving
+  GeneralizedNewtypeDeriving,
+  ScopedTypeVariables
  #-}
 
 module Weighted (
@@ -7,7 +8,8 @@ module Weighted (
     weight,
     unWeight,
     WeightedT(WeightedT),  --constructor is needed in Dist
-    runWeightedT
+    runWeightedT,
+    pullOutWeightedT -- used in Inference.mhWithStats'
                   ) where
 
 import Control.Arrow (first,second)
@@ -40,3 +42,8 @@ runWeightedT = fmap (second unWeight) . runWriterT . toWriterT
 
 instance MonadDist m => MonadBayes (WeightedT m) where
     factor = WeightedT . tell . weight
+
+-- | Pull WeightedT out across another WriterT
+pullOutWeightedT :: forall m r a. Functor m => WriterT r (WeightedT m) a -> WeightedT (WriterT r m) a
+pullOutWeightedT =
+  WeightedT . WriterT . WriterT . fmap (\((a, r), p) -> ((a, p), r)) . runWriterT . toWriterT . runWriterT

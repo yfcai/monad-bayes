@@ -9,6 +9,7 @@ module Trace.Debug where
 -- DEBUG EXPERIMENTS --
 -----------------------
 
+import Control.Exception (assert)
 import Control.Monad
 import Data.List (unfoldr, intercalate)
 import Data.Number.LogFloat hiding (sum)
@@ -49,8 +50,30 @@ instance Show Cache where
 sampleMany :: Sampler a -> Int -> Int -> [a]
 sampleMany sampler seed size = sample (sequence $ replicate size $ sampler) (mkStdGen seed)
 
-mhDebugHistogram :: Histo -> (forall m. (MonadBayes m) => m Double) -> Int -> Int -> IO ()
-mhDebugHistogram histo p seed steps = histogram histo $ mhRun p seed steps
+mhDebugHistogram :: (RandomDB r) => Histo -> (forall m. (MonadBayes m) => m Double) -> r -> Int -> Int -> IO ()
+mhDebugHistogram histo p r0 seed steps = do
+  let (samples, accepts, reuses) = sample (mhWithStats' r0 steps p) (mkStdGen seed)
+
+  let totalSampled = length samples
+
+  assert (steps == totalSampled) $
+    assert (steps == length accepts) $
+    assert (steps == length reuses) $
+    histogram histo samples
+
+  let meanRatio = sum (map (fromLogFloat . mhAcceptanceRatio) accepts) / fromIntegral totalSampled
+
+  let totalAccepted = length (filter mhAccepted accepts)
+  let acceptRate = fromIntegral totalAccepted / fromIntegral totalSampled :: Double
+
+  let totalNewSize = sum $ map mhNewSize reuses
+  let totalResampled = sum $ map mhResampled reuses
+  let totalReused = totalNewSize - totalResampled
+  let reuseRate = fromIntegral totalReused / fromIntegral totalNewSize :: Double
+
+  putStrLn $ printf "  Acceptance rate = %6.2f %%" (100 * acceptRate)
+  putStrLn $ printf "Mean accept ratio = %6.2f %%" (100 * meanRatio)
+  putStrLn $ printf "       Reuse rate = %6.2f %%" (100 * reuseRate)
 
 data Histo = Histo { xmin :: Double -- lower bound of samples
                    , step :: Double -- size of bins
@@ -98,7 +121,7 @@ histogram (Histo xmin step xmax ymax cols) xs0 =
 -- Successive lines in do-notation generates right-skewed trace.
 -- Example:
 --
---   mhDebugHistogram (Histo 1.125 0.25 8.875 0.5 60) gaussians 0 30000
+--   mhDebugHistogram (Histo 1.125 0.25 8.875 0.5 60) gaussians ([]::[Cache]) 0 2000
 --
 gaussians :: MonadDist m => m Double
 gaussians = do
@@ -109,7 +132,7 @@ gaussians = do
 -- Nested do-notation generates left-subtrees.
 -- Example:
 --
---   mhDebugHistogram (Histo 0.5125 0.025 1.0875 12 60) deps 0 30000
+--   mhDebugHistogram (Histo 0.5125 0.025 1.0875 12 60) deps ([]::[Cache]) 0 2000
 --
 deps :: MonadDist m => m Double
 deps = do
@@ -151,7 +174,7 @@ varChoices = do
 --
 -- Examples:
 --
---   mhDebugHistogram (Histo (-4.25) 0.25 19.25 0.5 60) fig8b 0 10000
+--   mhDebugHistogram (Histo (-4.25) 0.25 19.25 0.5 60) fig8b ([]::[Cache]) 0 2000
 --   histogram (Histo (-4.25) 0.25 19.25 0.5 60) $ sampleMany fig8b 0 10000
 --
 fig8b :: MonadDist m => m Double
@@ -170,7 +193,7 @@ fig8b = do
 --
 -- Examples:
 --
---   mhDebugHistogram (Histo (-0.5) 1.0 1.5 1.0 60) grassModel 0 40000
+--   mhDebugHistogram (Histo (-0.5) 1.0 1.5 1.0 60) grassModel ([]::[Cache]) 0 2000
 --   enumerate grassModel -- after import Dist; expect P[0]=0.53, P[1]=0.47
 --
 grassModel :: MonadBayes m => m Double
