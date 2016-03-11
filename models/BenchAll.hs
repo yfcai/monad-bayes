@@ -9,6 +9,7 @@ import qualified DPmixture
 import qualified Gamma
 import qualified HMM
 
+import Control.Monad.Par.Class (NFData)
 import Criterion.Main
 import Criterion.Main.Options
 import Criterion.Types
@@ -21,6 +22,9 @@ import Base
 import Empirical
 import Inference
 import Sampler
+import qualified Trace.ByDist as ByDist
+import qualified Trace.ByTime as ByTime
+import qualified Trace.ByType as ByType
 
 -- | Terminate ASAP by default.
 --
@@ -42,9 +46,7 @@ main = do
   let longRunning = forceGCUnset wat
   let ns = sampleSizes longRunning
   runMode (resetForceGC wat) $
-    [ runWeightedBayesDist ns "importance" importanceAlg
-    , runWeightedBayesDist ns "smc" smcAlg
-    ]
+    runWeightedBayesDist ns weightedBayes
 
 -- LISTS OF ALGORITHMS
 
@@ -55,41 +57,52 @@ randomSeed = 0
 runBayesAlg :: BayesAlg a b -> Bayes a -> Int -> [b]
 runBayesAlg alg model sampleSize = sample (alg model sampleSize) (mkStdGen randomSeed)
 
-importanceAlg :: BayesAlg a (a, LogFloat)
-importanceAlg model sampleSize = sequence $ replicate sampleSize (importance model)
+importanceAlg :: BayesAlg a a
+importanceAlg model sampleSize =
+  fmap (map (uncurry $ flip seq)) $ sequence $ replicate sampleSize (importance model)
 
-smcAlg :: BayesAlg a (a, LogFloat)
-smcAlg model sampleSize = runEmpiricalT $ smc sampleSize model
+smcAlg :: BayesAlg a a
+smcAlg model sampleSize =
+  fmap (map (uncurry $ flip seq)) $ runEmpiricalT $ smc sampleSize model
+
+mhByTimeAlg :: BayesAlg a a
+mhByTimeAlg model sampleSize = mh' ByTime.empty sampleSize model
+
+weightedBayes :: [(String, BayesAlg a a)]
+weightedBayes =
+  [ ("importance", importanceAlg)
+  --, ("smc"       , smcAlg       )
+  , ("mh by time", mhByTimeAlg  )
+  ]
 
 -- LISTS OF MODELS
 
 type Bayes a = forall m. MonadBayes m => m a
 type Dist  a = forall m. MonadDist  m => m a
 
--- The seemingly identical lines differ only in the typeclass instances supplied to `nf`
-runWeightedBayesDist :: [Int] -> String -> (forall a. BayesAlg a (a, LogFloat)) -> Benchmark
-runWeightedBayesDist sampleSizes algName alg =
-  bgroup algName $
-    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
-    | (modelName, model) <- bayesDouble
+runWeightedBayes :: NFData a => [Int] -> [(String, BayesAlg a a)] -> [(String, Bayes a)] -> [Benchmark]
+runWeightedBayes sampleSizes algorithms models =
+  [ bgroup modelName
+    [ bgroup (show n)
+      [ bench algName $ nf (runBayesAlg alg model) n
+      | (algName, alg) <- algorithms
+      ]
+    | n <- sampleSizes
     ]
-    ++
-    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
-    | (modelName, model) <- bayesInt
-    ]
-    ++
-    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
-    | (modelName, model) <- distDouble
-    ]
-    ++
-    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
-    | (modelName, model) <- distBools
-    ]
-    ++
-    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
-    | (modelName, model) <- distInt
-    ]
-    -- not including bayesInts for fear of nontermination
+  | (modelName, model) <- models
+  ]
+
+runWeightedBayesDist :: [Int] -> (forall a. [(String, BayesAlg a a)]) -> [Benchmark]
+runWeightedBayesDist sampleSizes algorithms =
+  runWeightedBayes sampleSizes algorithms bayesDouble          ++
+  runWeightedBayes sampleSizes algorithms (toBayes distDouble) ++
+  runWeightedBayes sampleSizes algorithms bayesInt             ++
+  runWeightedBayes sampleSizes algorithms (toBayes distInt)    ++
+  runWeightedBayes sampleSizes algorithms (toBayes distBools)
+  -- not including bayesInts for fear of nontermination
+
+toBayes :: [(String, Dist a)] -> [(String, Bayes a)]
+toBayes = map (\(s, m) -> (s, m))
 
 bayesDouble :: [(String, Bayes Double)]
 bayesDouble =

@@ -46,7 +46,7 @@ test-suite monad-bayes-test
 benchmark monad-bayes-bench
   type:                exitcode-stdio-1.0
   hs-source-dirs:      models
-  build-depends:       base, criterion, optparse-applicative
+  build-depends:       base, criterion, optparse-applicative, abstract-par
                      , monad-bayes
                      , random
                      , random-fu
