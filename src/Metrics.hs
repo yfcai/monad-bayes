@@ -31,11 +31,10 @@ kullbackLeibnerDivergence p q = sum $ do
 kullbackLeibnerTest :: (Ord a, Typeable a) => [a] -> Dist a -> Double
 kullbackLeibnerTest samples = kullbackLeibnerDivergence (categorical $ map (flip (,) 1) samples)
 
--- | The two-sample Kolmotorov-Smirnov distance between two sets of
--- samples is the maximum difference between their empirical distribution
--- functions.
-kolmogorovSmirnovTest :: (Ord a) => [a] -> [a] -> Double
-kolmogorovSmirnovTest xs ys =
+-- | The maximum difference between the empirical distribution
+-- functions of two samples.
+supEDFdistance :: (Ord a) => [a] -> [a] -> Double
+supEDFdistance xs ys =
   let
     zs = ksMerge 1 (sort xs) 1 (sort ys)
   in
