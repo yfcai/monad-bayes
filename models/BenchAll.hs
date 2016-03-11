@@ -1,4 +1,7 @@
-{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE
+  ImpredicativeTypes,
+  ScopedTypeVariables
+ #-}
 
 -- Import all models under maintenance.
 -- Models not imported here will not be compiled
@@ -14,9 +17,10 @@ import Criterion.Main
 import Criterion.Main.Options
 import Criterion.Types
 import Data.Number.LogFloat
+import Data.Random (RVar, sampleState)
 import Options.Applicative (execParser)
 import System.IO
-import System.Random (mkStdGen)
+import System.Random (StdGen, mkStdGen)
 
 import Base
 import Empirical
@@ -48,14 +52,27 @@ main = do
   runMode (resetForceGC wat) $
     runWeightedBayesDist ns weightedBayes
 
+-- LIST OF SAMPLERS
+
+type SampleFunction a = (forall m. MonadDist m => m a) -> StdGen -> a
+
+samplers :: [(String, SampleFunction a)]
+samplers =
+  [ ("monad-bayes sampler", sample)
+  , ("random-fu sampler"  , randomFuSampler)
+  ]
+
+randomFuSampler :: forall a. SampleFunction a
+randomFuSampler model gen = fst $ sampleState (model :: RVar a) gen
+
 -- LISTS OF ALGORITHMS
 
-type BayesAlg a b = Bayes a -> Int -> Sampler [b]
+type BayesAlg a b = forall m. MonadDist m => Bayes a -> Int -> m [b]
 
 randomSeed = 0
 
-runBayesAlg :: BayesAlg a b -> Bayes a -> Int -> [b]
-runBayesAlg alg model sampleSize = sample (alg model sampleSize) (mkStdGen randomSeed)
+runBayesAlg :: BayesAlg a b -> Bayes a -> SampleFunction [b] -> Int -> [b]
+runBayesAlg alg model sampler sampleSize = sampler (alg model sampleSize) (mkStdGen randomSeed)
 
 importanceAlg :: BayesAlg a a
 importanceAlg model sampleSize =
@@ -84,7 +101,10 @@ runWeightedBayes :: NFData a => [Int] -> [(String, BayesAlg a a)] -> [(String, B
 runWeightedBayes sampleSizes algorithms models =
   [ bgroup modelName
     [ bgroup (show n)
-      [ bench algName $ nf (runBayesAlg alg model) n
+      [ bgroup algName
+        [ bench samplerName $ nf (runBayesAlg alg model sampler) n
+        | (samplerName, sampler) <- samplers
+        ]
       | (algName, alg) <- algorithms
       ]
     | n <- sampleSizes
