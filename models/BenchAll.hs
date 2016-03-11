@@ -166,14 +166,14 @@ bayesInts =
 runWeightedBayes :: NFData a => [Int] -> [(String, BayesAlg a a)] -> [(String, BayesM a, x, y)] -> [Benchmark]
 runWeightedBayes sampleSizes algorithms models =
   [ bgroup modelName
-    [ bgroup (show n)
-      [ bgroup algName
-        [ bench samplerName $ nf (runBayesAlg alg model sampler 0) n
-        | (samplerName, sampler) <- samplers
+    [ bgroup algName
+      [ bgroup samplerName
+        [ bench (show n) $ nf (runBayesAlg alg model sampler 0) n
+        | n <- sampleSizes
         ]
-      | (algName, alg) <- algorithms
+      | (samplerName, sampler) <- samplers
       ]
-    | n <- sampleSizes
+    | (algName, alg) <- algorithms
     ]
   | (modelName, model, _, _) <- models
   ]
@@ -227,7 +227,7 @@ runKLDiv randomGens sampleSizes klModels =
 
 runAllKLDiv :: [StdGen] -> [Int] -> [String]
 runAllKLDiv randomGens sampleSizes =
---  runKLDiv randomGens sampleSizes klInt   ++
+  runKLDiv randomGens sampleSizes klInt   ++
   runKLDiv randomGens sampleSizes klBools
 
 -- | Plot supremum norm of the difference of empirical
