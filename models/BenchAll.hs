@@ -1,5 +1,4 @@
-{-# LANGUAGE Rank2Types
- #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 
 -- Import all models under maintenance.
 -- Models not imported here will not be compiled
@@ -10,112 +9,130 @@ import qualified DPmixture
 import qualified Gamma
 import qualified HMM
 
--- Algorithms to benchmark
-import Inference
-import Trace
-import Trace.Debug hiding (mhRun)
-import qualified Trace.ByTime as ByTime
-import qualified Trace.ByDist as ByDist
-import qualified Trace.ByType as ByType
-
--- Standard library
-import Data.List (sort)
-import Data.Typeable
+import Criterion.Main
+import Criterion.Main.Options
+import Criterion.Types
+import Data.Number.LogFloat
+import Options.Applicative (execParser)
 import System.IO
-import Text.Printf
--- monad-bayes
+import System.Random (mkStdGen)
+
 import Base
-import Dist
-import Metrics
+import Empirical
+import Inference
+import Sampler
 
-mhRun = mhRunWith ByType.empty
+-- | Terminate ASAP by default.
+--
+-- To run the benchmark for an hour to improve accuracy,
+-- run `stack bench --benchmark-arguments '-L3600'`
+myDefaultConfig = defaultConfig
+  { timeLimit = 0.1
+  }
 
+sampleSizes :: Bool -> [Int]
+sampleSizes False = [1024]
+sampleSizes True  = [1024, 2048 .. 10240] -- 10 data points
+                  --[1024, 5056 .. 65536] -- 16 data points
+
+main :: IO ()
 main = do
-  -- make sure `putStrLn` prints to console immediately
-  hSetBuffering stdout LineBuffering
-  hline
-  putStrLn "MH on sum of 4 dice: KL-divergence"
-  defaultKLBench "dice 4" $ Dice.dice 4
-  hline
+  hSetBuffering stdout LineBuffering -- DELETE THIS
+  wat <- execParser (describe myDefaultConfig)
+  let longRunning = forceGCUnset wat
+  let ns = sampleSizes longRunning
+  runMode (resetForceGC wat) $
+    [ runWeightedBayesDist ns "importance" importanceAlg
+    , runWeightedBayesDist ns "smc" smcAlg
+    ]
 
-  putStrLn "MH on sum of 2 dice given it is at least 4: KL-divergence"
-  defaultKLBench "dice_hard" Dice.dice_hard
-  hline
+-- LISTS OF ALGORITHMS
 
-  putStrLn "MH on sum of 2 dices weighted by its reciprocal"
-  defaultKLBench "dice_soft" Dice.dice_soft
-  hline
-  putStrLn "KL-divergence of `latent 5` against `urn 5` by repeated sampling"
-  klBench "latent 5 || urn 5" (sampleMany $ BetaBin.latent 5) (BetaBin.urn 5) 0 (powers 14)
-  hline
+type BayesAlg a b = Bayes a -> Int -> Sampler [b]
 
-  putStrLn "MH on `urn 5`: KL-divergence"
-  defaultKLBench "urn 5" $ BetaBin.urn 5
-  hline
+randomSeed = 0
 
-  putStrLn "MH on `latent 2`: KL-divergence"
-  klBench "latent 2" (mhRun $ BetaBin.latent 2) (BetaBin.urn 2) 0 (powers 14)
-  hline
+runBayesAlg :: BayesAlg a b -> Bayes a -> Int -> [b]
+runBayesAlg alg model sampleSize = sample (alg model sampleSize) (mkStdGen randomSeed)
+
+importanceAlg :: BayesAlg a (a, LogFloat)
+importanceAlg model sampleSize = sequence $ replicate sampleSize (importance model)
+
+smcAlg :: BayesAlg a (a, LogFloat)
+smcAlg model sampleSize = runEmpiricalT $ smc sampleSize model
+
+-- LISTS OF MODELS
+
+type Bayes a = forall m. MonadBayes m => m a
+type Dist  a = forall m. MonadDist  m => m a
+
+-- The seemingly identical lines differ only in the typeclass instances supplied to `nf`
+runWeightedBayesDist :: [Int] -> String -> (forall a. BayesAlg a (a, LogFloat)) -> Benchmark
+runWeightedBayesDist sampleSizes algName alg =
+  bgroup algName $
+    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
+    | (modelName, model) <- bayesDouble
+    ]
+    ++
+    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
+    | (modelName, model) <- bayesInt
+    ]
+    ++
+    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
+    | (modelName, model) <- distDouble
+    ]
+    ++
+    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
+    | (modelName, model) <- distBools
+    ]
+    ++
+    [ bgroup modelName [ bench (show n) $ nf (map fst) (runBayesAlg alg model n) | n <- sampleSizes ]
+    | (modelName, model) <- distInt
+    ]
+    -- not including bayesInts for fear of nontermination
+
+bayesDouble :: [(String, Bayes Double)]
+bayesDouble =
+  [ ("Gamma.model", Gamma.model)
+  ]
+
+bayesInt :: [(String, Bayes Int)]
+bayesInt =
+  [ ("Dice.dice_hard", Dice.dice_hard)
+  , ("Dice.dice_soft", Dice.dice_soft)
+  ]
+
+-- termination behavior is not clear
+bayesInts :: [(String, Bayes [Int])]
+bayesInts =
+  [ ("DPmixture.dpMixture", DPmixture.dpMixture)
+  , ("HMM.hmm", HMM.hmm)
+  ]
+
+distDouble :: [(String, Dist Double)]
+distDouble =
+  [ ("Gamma.exact", Gamma.exact)
+  ]
+
+distBools :: [(String, Dist [Bool])]
+distBools =
+  [ ("BetaBin.latent 10", BetaBin.latent 10)
+  , ("BetaBin.urn 10", BetaBin.urn 10)
+  ]
+
+distInt :: [(String, Dist Int)]
+distInt =
+  [ ("Dice.dice 10", Dice.dice 10)
+  ]
 
 
-  putStrLn "MH on gaussians: KS-test against repeated sampling"
-  ksBench "gaussians" (mhRun gaussians 0) (sampleMany gaussians 0) (powers 14)
-  hline
-  putStrLn "MH on gaussians: KS-test against another chain"
-  ksBench "gaussians" (mhRun gaussians 0) (mhRun gaussians 3821) (powers 14)
-  hline
+-- HACK: repurpose unused flag forceGC to decide whether to run for days
 
-  putStrLn "MH on varChoices: KS-test against repeated sampling"
-  ksBench "varChoices" (mhRun varChoices 3821) (sampleMany varChoices 0) (powers 14)
-  hline
-  putStrLn "MH on varChoices: KS-test against another chain"
-  ksBench "varChoices" (mhRun varChoices 0) (mhRun varChoices 3821) (powers 14)
-  hline
+-- | Repurpose the unused -G flag for long-running benchmarks
+forceGCUnset :: Mode -> Bool
+forceGCUnset (Run cfg _ _) = not (forceGC cfg)
+forceGCUnset _             = False
 
-  defaultKSBench "gamma model|exact" Gamma.model Gamma.exact
-  hline
-  defaultKSBench "gamma exact|exact" Gamma.exact Gamma.exact
-  hline
-
-hline :: IO ()
-hline = putStrLn $ replicate 80 '-'
-
-powers n = map (2^) [0..n]
-
--- run klBench with default config
-defaultKLBench :: (Ord a, Typeable a) => String -> (forall m. MonadBayes m => m a) -> IO [()]
-defaultKLBench name program = klBench name (mhRun program) program 0 (powers 14)
-
--- ms is a collection of sample sizes.
--- Run @maximum ms@ steps of MH, print KL-divergence against
--- the first k samples with k <- ms.
-klBench :: (Ord a, Typeable a) =>
-           String -> (Int -> Int -> [a]) -> Dist a -> Int -> [Int] -> IO [()]
-klBench name sampler reference seed ms =
-  let
-    m  = maximum ms
-    xs = (sampler seed m)
-    kl k = putStrLn $ printf "%-20s KL-divergence with %6d sample = %f" name k
-                    $ kullbackLeibnerTest (take k xs) reference
-
-  in
-    sequence $ map kl ms
-
--- run ksBench of MH against repeated sampling
-defaultKSBench :: (Ord a) => String -> (forall m. MonadBayes m => m a) -> (forall m. MonadDist m => m a) -> IO [()]
-defaultKSBench name program reference =
-  ksBench name (mhRun program 0) (sampleMany reference 0) (powers 14)
-
--- 2-sample Kolmogorov-Smirnov test on 2 samplers
-ksBench :: (Ord a) =>
-           String -> (Int -> [a]) -> (Int -> [a]) -> [Int] -> IO [()]
-ksBench name sampler1 sampler2 ms =
-  let
-    m  = maximum ms
-    xs = sampler1 m
-    ys = sampler2 m
-    ks k = putStrLn $ printf "%-20s KS-test with %6d sample = %f" name k
-                    $ kolmogorovSmirnovTest (take k xs) (take k ys)
-
-  in
-    sequence $ map ks ms
+resetForceGC :: Mode -> Mode
+resetForceGC (Run cfg x y) = Run (cfg { forceGC = True }) x y
+resetForceGC mode          = mode
