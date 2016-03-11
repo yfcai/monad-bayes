@@ -9,7 +9,7 @@ module Weighted (
     unWeight,
     WeightedT(WeightedT),  --constructor is needed in Dist
     runWeightedT,
-    pullOutWeightedT -- used in Inference.mhWithStats'
+    swapWriterWeighted, swapStateWeighted  -- used in Inference.mhWithStats'
                   ) where
 
 import Control.Arrow (first,second)
@@ -17,6 +17,7 @@ import Data.Number.LogFloat
 import Data.Monoid
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Writer
+import Control.Monad.State
 
 import Base
 
@@ -44,6 +45,11 @@ instance MonadDist m => MonadBayes (WeightedT m) where
     factor = WeightedT . tell . weight
 
 -- | Pull WeightedT out across another WriterT
-pullOutWeightedT :: forall m r a. Functor m => WriterT r (WeightedT m) a -> WeightedT (WriterT r m) a
-pullOutWeightedT =
+swapWriterWeighted :: Functor m => WriterT r (WeightedT m) a -> WeightedT (WriterT r m) a
+swapWriterWeighted =
   WeightedT . WriterT . WriterT . fmap (\((a, r), p) -> ((a, p), r)) . runWriterT . toWriterT . runWriterT
+
+-- | Pull WeightedT ouot across a StateT
+swapStateWeighted :: forall m r a. Functor m => StateT r (WeightedT m) a -> WeightedT (StateT r m) a
+swapStateWeighted m =
+  WeightedT $ WriterT $ StateT $ fmap (\((a, r), p) -> ((a, p), r)) . runWriterT . toWriterT . runStateT m
