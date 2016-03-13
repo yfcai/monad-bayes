@@ -7,16 +7,23 @@
 
 module Sampler (
     Sampler,
-    sample
+    sample,
+    StdSampler,
+    stdSample,
+    MTSampler,
+    mtSample
                ) where
 
 import System.Random
+import System.Random.MWC
+import System.Random.Mersenne.Pure64
 import Control.Monad (liftM2)
 import Data.Tuple
 import Data.Random.Distribution.Beta
 import Data.Random.Distribution.Normal
 import Data.Random.Distribution.Categorical
 import Data.Random.Distribution
+import qualified Data.Random.Sample
 import Data.Random hiding (sample)
 import Control.Arrow (first,second)
 import Data.Number.LogFloat
@@ -67,7 +74,7 @@ wrapper = Sampler . (fst .) . sampleState
 
 
 ---------------------------------------------------
--- MonadDist instance for the RVar monad
+-- MonadDist instance for the RVar monad and concrete samplers
 
 instance MonadDist (RVarT m) where
   --should probably normalize before converting from log-domain
@@ -76,3 +83,26 @@ instance MonadDist (RVarT m) where
   normal m s = rvarT $ Normal m s
   gamma  a b = rvarT $ Gamma a (1 / b)
   beta   a b = rvarT $ Beta a b
+
+instance MonadDist IO where
+    primitive d = convert $ primitive d where
+        convert :: RVar a -> IO a
+        convert = Data.Random.Sample.sample
+
+newtype StdSampler a = StdSampler (State StdGen a)
+    deriving (Functor, Applicative, Monad)
+instance MonadDist StdSampler where
+  primitive d = convert $ primitive d where
+    convert :: RVar a -> StdSampler a
+    convert = StdSampler . Data.Random.Sample.sample
+stdSample :: StdSampler a -> StdGen -> a
+stdSample (StdSampler s) = evalState s
+
+newtype MTSampler a = MTSampler (State PureMT a)
+    deriving (Functor, Applicative, Monad)
+instance MonadDist (MTSampler) where
+    primitive d = convert $ primitive d where
+        convert :: RVar a -> MTSampler a
+        convert = MTSampler . Data.Random.Sample.sample
+mtSample :: MTSampler a -> PureMT -> a
+mtSample (MTSampler s) = evalState s

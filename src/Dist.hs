@@ -9,6 +9,8 @@ module Dist (
     Dist,
     toList,
     explicit,
+    evidence,
+    mass,
     compact,
     normalize,
     enumerate
@@ -37,7 +39,8 @@ newtype Dist a = Dist {unDist :: WeightedT [] a}
     deriving (Functor, Applicative, Monad)
 
 instance MonadDist Dist where
-    categorical d = Dist $ WeightedT $ WriterT $ fmap (second weight) $ Fold.toList d
+    categorical d = Dist $ WeightedT $ WriterT $ fmap (second weight) $
+                    normalize $ Fold.toList d
     normal = error "Dist does not support continuous distributions"
     gamma  = error "Dist does not support continuous distributions"
     beta   = error "Dist does not support continuous distributions"
@@ -53,7 +56,17 @@ toList = runWeightedT . unDist
 explicit :: Dist a -> [(a,Double)]
 explicit = map (second fromLogFloat) . toList
 
+-- | Returns the model evidence, that is sum of all weights.
+evidence :: Dist a -> LogFloat
+evidence = LogFloat.sum . map snd . toList
+
+-- | Probability mass of a specific value.
+mass :: Ord a => Dist a -> a -> Double
+mass d a = case lookup a (enumerate d) of Just p -> p
+                                          Nothing -> 0
+
 -- | Aggregate weights of equal values.
+-- | The resulting list is sorted ascendingly according to values.
 compact :: Ord a => [(a,Double)] -> [(a,Double)]
 compact = Map.toAscList . Map.fromListWith (+)
 
@@ -63,8 +76,7 @@ normalize xs = map (second (/ norm)) xs where
     norm = sum (map snd xs)
 
 -- | Aggregation and normalization of weights.
+-- | The resulting list is sorted ascendingly according to values.
 enumerate :: Ord a => Dist a -> [(a,Double)]
 enumerate d = simplify $ explicit d where
-    simplify = normalize . compact    
-    
-
+    simplify = normalize . compact
