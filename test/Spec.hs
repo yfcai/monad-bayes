@@ -6,6 +6,10 @@ import qualified TestEmpirical
 import qualified TestParticle
 import qualified TestTrace
 import qualified TestInference
+import qualified TestSMCObservations
+
+import qualified Dice
+import qualified HMM
 
 main :: IO ()
 main = hspec $ do
@@ -65,3 +69,8 @@ main = hspec $ do
     -- too large to execute
     -- it "PIMH leaves posterior invariant" $ do
     --   TestInference.check_pimh_trans `shouldBe` True
+  describe "Number of observations for models" $ do
+    it "1 observation for Dice.dice_soft" $ do
+      TestSMCObservations.check_smc_weight 1 10 Dice.dice_soft `shouldBe` True
+    it "15 observations for HMM.hmm" $ do
+      TestSMCObservations.check_smc_weight 15 10 HMM.hmm `shouldBe` True
