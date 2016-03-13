@@ -9,6 +9,8 @@ import qualified TestInference
 import qualified TestSMCObservations
 
 import qualified Dice
+import qualified Gamma
+import qualified BetaBin
 import qualified HMM
 
 main :: IO ()
@@ -70,7 +72,20 @@ main = hspec $ do
     -- it "PIMH leaves posterior invariant" $ do
     --   TestInference.check_pimh_trans `shouldBe` True
   describe "Number of observations for models" $ do
+    it "4 observations for Gamma.model" $ do
+      TestSMCObservations.check_smc_weight 4 20 Gamma.model `shouldBe` True
+    it "0 observations for Gamma.exact" $ do
+      TestSMCObservations.check_smc_weight 0 20 Gamma.exact `shouldBe` True
+    it "0 observations for Dice.dice" $ do
+      TestSMCObservations.check_smc_weight 0 20 (Dice.dice 4) `shouldBe` True
     it "1 observation for Dice.dice_soft" $ do
-      TestSMCObservations.check_smc_weight 1 10 Dice.dice_soft `shouldBe` True
+      TestSMCObservations.check_smc_weight 1 20 Dice.dice_soft `shouldBe` True
+    it "1 observation for Dice.dice_hard" $ do
+      TestSMCObservations.check_smc_weight 1 20 Dice.dice_hard `shouldBe` True
+    it "0 observations for BetaBin.latent" $ do
+      TestSMCObservations.check_smc_weight 0 20 (BetaBin.latent 5) `shouldBe` True
+    it "0 observations for BetaBin.urn" $ do
+      TestSMCObservations.check_smc_weight 0 20 (BetaBin.urn 5) `shouldBe` True
     it "15 observations for HMM.hmm" $ do
-      TestSMCObservations.check_smc_weight 15 10 HMM.hmm `shouldBe` True
+      TestSMCObservations.check_smc_weight 15 20 HMM.hmm `shouldBe` True
+    -- test dpmixture for observations?

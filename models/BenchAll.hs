@@ -17,6 +17,7 @@ import Criterion.Main
 import Criterion.Main.Options
 import Criterion.Types
 import Data.List (intercalate)
+import Data.Maybe
 import Data.Number.LogFloat
 import Data.Random (RVar, sampleState)
 import Data.Typeable
@@ -86,7 +87,7 @@ randomFuSampler model gen = fst $ sampleState (model :: RVar a) gen
 -- LISTS OF ALGORITHMS --
 ------------------------
 
-type BayesAlg a b = forall m. MonadDist m => BayesM a -> Int -> m [b]
+type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 
 -- | Algorithms to benchmark performance
 bayesAlgs :: [(String, BayesAlg a a)]
@@ -97,27 +98,33 @@ bayesAlgs =
   ]
 
 
-type MultiSampler a = forall m. MonadDist m => BayesM a -> [Int] -> m [[a]]
+type MultiSampler a = forall m. MonadDist m => String -> BayesM a -> [Int] -> m [[a]]
 
 -- | Algorithms to benchmark goodness of fit
 multiSamplers :: [(String, MultiSampler a)]
 multiSamplers =
-  [ ("mh by time", collectPrefixes . mhByTimeAlg)
+  [ ("mh by time", \x m -> collectPrefixes (mhByTimeAlg x m))
   ]
 
-runBayesAlg :: BayesAlg a b -> BayesM a -> SampleFunction [b] -> Int -> Int -> [b]
-runBayesAlg alg model sampler randomSeed sampleSize = sampler (alg model sampleSize) (mkStdGen randomSeed)
+runBayesAlg :: BayesAlg a b -> String -> BayesM a -> SampleFunction [b] -> Int -> Int -> [b]
+runBayesAlg alg modelName model sampler randomSeed sampleSize = sampler (alg modelName model sampleSize) (mkStdGen randomSeed)
 
 importanceAlg :: BayesAlg a a
-importanceAlg model sampleSize =
+importanceAlg modelName model sampleSize =
   fmap (map (uncurry $ flip seq)) $ sequence $ replicate sampleSize (importance model)
 
 smcAlg :: BayesAlg a a
-smcAlg model sampleSize =
-  fmap (map (uncurry $ flip seq)) $ runEmpiricalT $ smc sampleSize model
+smcAlg modelName model sampleSize =
+  let
+    observations = fromJust (lookup modelName modelObs)
+    particles = min sampleSize 128
+    rounds = div (sampleSize + particles - 1) particles
+    smcIteration = runEmpiricalT $ smc observations particles model
+  in
+    fmap (map (uncurry $ flip seq) . take sampleSize . concat) $ sequence $ replicate rounds smcIteration
 
 mhByTimeAlg :: BayesAlg a a
-mhByTimeAlg model sampleSize = mh' ByTime.empty sampleSize model
+mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
 
 ---------------------
 -- LISTS OF MODELS --
@@ -125,6 +132,21 @@ mhByTimeAlg model sampleSize = mh' ByTime.empty sampleSize model
 
 type BayesM a = forall m. MonadBayes m => m a
 type DistM  a = forall m. MonadDist  m => m a
+
+-- | Map model names to the number of observations
+-- to have particles of equal weight in SMC.
+modelObs :: [(String, Int)]
+modelObs =
+  [ ("Gamma.model", 4)
+  , ("Gamma.exact", 0)
+  , ("Dice.dice", 0)
+  , ("Dice.dice_hard", 1)
+  , ("Dice.dice_soft", 1)
+  , ("BetaBin.latent", 0)
+  , ("BetaBin.urn", 0)
+  , ("HMM.hmm", 15)
+  -- dpmixture?
+  ]
 
 -- Models measure fit by 2-sample Kolmogorov-Smirnov test
 ksDouble :: [(String, BayesM Double, String, DistM Double)]
@@ -139,23 +161,22 @@ ksDouble =
 
 klInt :: [(String, BayesM Int, String, BayesM Int)]
 klInt =
-  [ ("Dice.dice 5"   , Dice.dice 5   , "Dice.dice 5"   , Dice.dice 5   )
+  [ ("Dice.dice"   , Dice.dice 5   , "Dice.dice 5"   , Dice.dice 5   )
   , ("Dice.dice_hard", Dice.dice_hard, "Dice.dice_hard", Dice.dice_hard)
   , ("Dice.dice_soft", Dice.dice_soft, "Dice.dice_soft", Dice.dice_soft)
   ]
 
 klBools :: [(String, BayesM [Bool], String, BayesM [Bool])]
 klBools =
-  [ ("BetaBin.latent 5", BetaBin.latent 5, "BetaBin.urn 5", BetaBin.urn 5)
-  , ("BetaBin.urn 5"   , BetaBin.urn 5   , "BetaBin.urn 5", BetaBin.urn 5)
+  [ ("BetaBin.latent", BetaBin.latent 5, "BetaBin.urn 5", BetaBin.urn 5)
+  , ("BetaBin.urn"   , BetaBin.urn 5   , "BetaBin.urn 5", BetaBin.urn 5)
   ]
 
--- Beware: HMM is strict, DPmixture is lazy.
 -- HMM is too big to test by KL divergence.
 bayesInts :: [(String, BayesM [Int], (), ())]
 bayesInts =
   [ ("HMM.hmm", HMM.hmm, (), ())
-  --, ("DPmixture.dpMixture", DPmixture.dpMixture) -- not terminating in trace MH for now
+  --, ("DPmixture.dpMixture", DPmixture.dpMixture) -- add this one
   ]
 
 ----------------------------
@@ -168,7 +189,7 @@ runWeightedBayes sampleSizes algorithms models =
   [ bgroup modelName
     [ bgroup algName
       [ bgroup samplerName
-        [ bench (show n) $ nf (runBayesAlg alg model sampler 0) n
+        [ bench (show n) $ nf (runBayesAlg alg modelName model sampler 0) n
         | n <- sampleSizes
         ]
       | (samplerName, sampler) <- samplers
@@ -214,7 +235,7 @@ runKLDiv :: (NFData a, Ord a, Typeable a) =>
             [StdGen] -> [Int] -> [(String, BayesM a, String, BayesM a)] -> [String]
 runKLDiv randomGens sampleSizes klModels =
   [ let
-      collections = sampler (alg model sampleSizes) randomGen
+      collections = sampler (alg modelName model sampleSizes) randomGen
       klTestResults = map (flip kullbackLeibnerTest ref) collections
     in
       printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KL divergence" ++
@@ -240,7 +261,7 @@ runKSTest :: (NFData a, Ord a, Typeable a) =>
 runKSTest randomGens sampleSizes ksModels =
   [ let
       (gen1, gen2) = split randomGen
-      collections = sampler (alg model sampleSizes) gen1
+      collections = sampler (alg modelName model sampleSizes) gen1
       refsamples  = sampler (sequence $ map (\n -> sequence $ replicate n ref) sampleSizes) gen2
       ksTestResults = zipWith supEDFdistance collections refsamples
     in
