@@ -81,7 +81,7 @@ mh n init trans = evalStateT (start >>= chain n) 1 where
     if p == 0 then
       start
     else
-      return x
+      put p >> return x
 
   --chain :: Int -> a -> StateT LogFloat m [a]
   chain 0 _ = return []
