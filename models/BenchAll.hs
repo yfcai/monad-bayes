@@ -45,7 +45,7 @@ myDefaultConfig = defaultConfig
   }
 
 sampleSizes :: Bool -> [Int]
-sampleSizes False = [100, 200]
+sampleSizes False = [128]
 sampleSizes True  = [1024, 2048 .. 10240] -- 10 data points
                   --[1024, 5056 .. 65536] -- 16 data points
 
@@ -124,7 +124,7 @@ smcAlg modelName model sampleSize =
     observations = case lookup modelName modelObs of
                      Just obs -> obs
                      Nothing  -> error $ "Model not found in `modelObs`: " ++ modelName
-    particles = min sampleSize 128
+    particles = min sampleSize 64
     rounds = div (sampleSize + particles - 1) particles
     smcIteration = runEmpiricalT $ smc observations particles model
   in
@@ -134,14 +134,14 @@ smcAlg modelName model sampleSize =
 -- to have particles of equal weight in SMC.
 modelObs :: [(String, Int)]
 modelObs =
-  [ ("Gamma.model", 4)
-  , ("Gamma.exact", 0)
-  , ("Dice.dice", 0)
+  [ ("Gamma.model"   , 5)
+  , ("Gamma.exact"   , 0)
+  , ("Dice.dice"     , 0)
   , ("Dice.dice_hard", 1)
   , ("Dice.dice_soft", 1)
   , ("BetaBin.latent", 0)
-  , ("BetaBin.urn", 0)
-  , ("HMM.hmm", 15)
+  , ("BetaBin.urn"   , 0)
+  , ("HMM.hmm"       , 16)
   -- dpmixture?
   ]
 
