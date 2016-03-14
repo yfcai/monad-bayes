@@ -93,7 +93,7 @@ type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 bayesAlgs :: [(String, BayesAlg a a)]
 bayesAlgs =
   [ ("importance", importanceAlg)
-  --, ("smc"       , smcAlg       )
+  , ("smc"       , smcAlg       )
   , ("mh by time", mhByTimeAlg  )
   ]
 
@@ -104,6 +104,7 @@ type MultiSampler a = forall m. MonadDist m => String -> BayesM a -> [Int] -> m 
 multiSamplers :: [(String, MultiSampler a)]
 multiSamplers =
   [ ("mh by time", \x m -> collectPrefixes (mhByTimeAlg x m))
+  , ("smc",        \x m -> collectReruns   (smcAlg      x m))
   ]
 
 runBayesAlg :: BayesAlg a b -> String -> BayesM a -> SampleFunction [b] -> Int -> Int -> [b]
@@ -116,15 +117,13 @@ importanceAlg modelName model sampleSize =
 mhByTimeAlg :: BayesAlg a a
 mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
 
--- DEBUG
--- let smcAlg m n model = let p = min n 128 in fmap concat $ sequence $ replicate (div (n + p - 1) p) $ runEmpiricalT $ smc m p model
 smcAlg :: BayesAlg a a
 smcAlg modelName model sampleSize =
   let
     observations = case lookup modelName modelObs of
                      Just obs -> obs
                      Nothing  -> error $ "Model not found in `modelObs`: " ++ modelName
-    particles = min sampleSize 64
+    particles = min sampleSize 128
     rounds = div (sampleSize + particles - 1) particles
     smcIteration = runEmpiricalT $ smc observations particles model
   in
@@ -132,17 +131,20 @@ smcAlg modelName model sampleSize =
 
 -- | Map model names to the number of observations
 -- to have particles of equal weight in SMC.
+--
+-- The values here are checked at test/Spec.hs via
+-- test/TestSMCObservations.hs.
 modelObs :: [(String, Int)]
 modelObs =
-  [ ("Gamma.model"   , 5)
-  , ("Gamma.exact"   , 0)
-  , ("Dice.dice"     , 0)
-  , ("Dice.dice_hard", 1)
-  , ("Dice.dice_soft", 1)
-  , ("BetaBin.latent", 0)
-  , ("BetaBin.urn"   , 0)
-  , ("HMM.hmm"       , 16)
-  -- dpmixture?
+  [ ("Gamma.model"    , 5)
+  , ("Gamma.exact"    , 0)
+  , ("Dice.dice"      , 0)
+  , ("Dice.dice_hard" , 1)
+  , ("Dice.dice_soft" , 1)
+  , ("BetaBin.latent" , 0)
+  , ("BetaBin.urn"    , 0)
+  , ("HMM.hmm"        , 16)
+  , ("DPmixture.dpMem", 10)
   ]
 
 ---------------------
@@ -165,22 +167,22 @@ ksDouble =
 
 klInt :: [(String, BayesM Int, String, BayesM Int)]
 klInt =
-  [ ("Dice.dice"   , Dice.dice 5   , "Dice.dice 5"   , Dice.dice 5   )
+  [ ("Dice.dice"     , Dice.dice 5   , "Dice.dice"     , Dice.dice 5   )
   , ("Dice.dice_hard", Dice.dice_hard, "Dice.dice_hard", Dice.dice_hard)
   , ("Dice.dice_soft", Dice.dice_soft, "Dice.dice_soft", Dice.dice_soft)
   ]
 
 klBools :: [(String, BayesM [Bool], String, BayesM [Bool])]
 klBools =
-  [ ("BetaBin.latent", BetaBin.latent 5, "BetaBin.urn 5", BetaBin.urn 5)
-  , ("BetaBin.urn"   , BetaBin.urn 5   , "BetaBin.urn 5", BetaBin.urn 5)
+  [ ("BetaBin.latent", BetaBin.latent 5, "BetaBin.urn", BetaBin.urn 5)
+  , ("BetaBin.urn"   , BetaBin.urn 5   , "BetaBin.urn", BetaBin.urn 5)
   ]
 
--- HMM is too big to test by KL divergence.
+-- Models too big to test by KL divergence.
 bayesInts :: [(String, BayesM [Int], (), ())]
 bayesInts =
   [ ("HMM.hmm", HMM.hmm, (), ())
-  --, ("DPmixture.dpMixture", DPmixture.dpMixture) -- add this one
+  , ("DPmixture.dpMem", DPmixture.dpMem, (), ())
   ]
 
 ----------------------------
