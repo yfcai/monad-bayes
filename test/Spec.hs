@@ -79,7 +79,7 @@ main = hspec $ do
     --   TestInference.check_pimh_trans `shouldBe` True
   describe "Number of observations for models" $ do
     it "4 observations for Gamma.model" $ do
-      TestSMCObservations.check_smc_weight 4 20 Gamma.model `shouldBe` True
+      TestSMCObservations.check_smc_weight 5 20 Gamma.model `shouldBe` True
     it "0 observations for Gamma.exact" $ do
       TestSMCObservations.check_smc_weight 0 20 Gamma.exact `shouldBe` True
     it "0 observations for Dice.dice" $ do
@@ -93,5 +93,5 @@ main = hspec $ do
     it "0 observations for BetaBin.urn" $ do
       TestSMCObservations.check_smc_weight 0 20 (BetaBin.urn 5) `shouldBe` True
     it "15 observations for HMM.hmm" $ do
-      TestSMCObservations.check_smc_weight 15 20 HMM.hmm `shouldBe` True
+      TestSMCObservations.check_smc_weight 16 20 HMM.hmm `shouldBe` True
     -- test dpmixture for observations?

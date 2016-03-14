@@ -24,4 +24,8 @@ sameWeights :: [(a, LogFloat)] -> Bool
 sameWeights xs = length (nub $ map snd xs) == 1
 
 check_smc_weight :: Int -> Int -> ParticleT (EmpiricalT Sampler) a -> Bool
-check_smc_weight observations particles model = sameWeights (smcParticles observations particles model)
+check_smc_weight observations particles model =
+  let
+    samples = smcParticles observations particles model
+  in
+    length samples == particles && sameWeights samples
