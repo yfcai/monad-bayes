@@ -39,15 +39,22 @@ import qualified Trace.ByType as ByType
 -- | Terminate ASAP by default.
 --
 -- To run the benchmark for an hour to improve accuracy,
--- run `stack bench --benchmark-arguments '-L3600'`
+-- run
+--   stack bench --benchmark-arguments '-L120 -oout.html --csv summary.csv' 2> fit.csv
 myDefaultConfig = defaultConfig
   { timeLimit = 0.1
   }
 
 sampleSizes :: Bool -> [Int]
 sampleSizes False = [128]
-sampleSizes True  = [1024, 2048 .. 10240] -- 10 data points
-                  --[1024, 5056 .. 65536] -- 16 data points
+sampleSizes True  = [1024, 8128 .. 131072] -- 16 data points
+
+randomGens :: Bool -> [StdGen]
+randomGens False = [mkStdGen 0]
+randomGens True  = splitManyTimes 64 (mkStdGen 0)
+  where
+    splitManyTimes 1 g = [g]
+    splitManyTimes n g = let (g1, g2) = split g in g1 : splitManyTimes (n - 1) g2
 
 main :: IO ()
 main = do
@@ -56,17 +63,15 @@ main = do
   wat <- execParser (describe myDefaultConfig)
   let longRunning = forceGCUnset wat
   let ns = sampleSizes longRunning
-  runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
-
-  let (gen1, gen') = split $ mkStdGen 0
-  let (gen2, gen3) = split gen'
-  let randomGens = [gen1, gen2, gen3]
+  let gs = randomGens  longRunning
 
   putStrLn ""
   putStrLn $ csvHeader ns
-  putStr   $ unlines $ runAllKLDiv   randomGens ns
-  putStr   $ unlines $ runAllKSTests randomGens ns
+  putStr   $ unlines $ runAllKLDiv   gs ns
+  putStr   $ unlines $ runAllKSTests gs ns
   putStrLn ""
+
+  runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
 
 ----------------------
 -- LIST OF SAMPLERS --
@@ -259,9 +264,6 @@ runAllKLDiv randomGens sampleSizes =
 
 -- | Plot supremum norm of the difference of empirical
 -- density functions between two samples.
---
--- TODO: compute inverse of KS probability
--- for minimum alpha to accept the fit
 runKSTest :: (NFData a, Ord a, Typeable a) =>
              [StdGen] -> [Int] -> [(String, BayesM a, String, DistM a)] -> [String]
 runKSTest randomGens sampleSizes ksModels =
