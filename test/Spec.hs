@@ -14,6 +14,7 @@ import qualified Dice
 import qualified Gamma
 import qualified BetaBin
 import qualified HMM
+import qualified DPmixture
 
 main :: IO ()
 main = hspec $ do
@@ -94,4 +95,5 @@ main = hspec $ do
       TestSMCObservations.check_smc_weight 0 20 (BetaBin.urn 5) `shouldBe` True
     it "15 observations for HMM.hmm" $ do
       TestSMCObservations.check_smc_weight 16 20 HMM.hmm `shouldBe` True
-    -- test dpmixture for observations?
+    it "10 observations for DPmixture.dpMem" $ do
+      TestSMCObservations.check_smc_weight 10 20 DPmixture.dpMem `shouldBe` True
