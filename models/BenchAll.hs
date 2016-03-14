@@ -113,25 +113,22 @@ importanceAlg :: BayesAlg a a
 importanceAlg modelName model sampleSize =
   fmap (map (uncurry $ flip seq)) $ sequence $ replicate sampleSize (importance model)
 
+mhByTimeAlg :: BayesAlg a a
+mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
+
+-- DEBUG
+-- let smcAlg m n model = let p = min n 128 in fmap concat $ sequence $ replicate (div (n + p - 1) p) $ runEmpiricalT $ smc m p model
 smcAlg :: BayesAlg a a
 smcAlg modelName model sampleSize =
   let
-    observations = fromJust (lookup modelName modelObs)
+    observations = case lookup modelName modelObs of
+                     Just obs -> obs
+                     Nothing  -> error $ "Model not found in `modelObs`: " ++ modelName
     particles = min sampleSize 128
     rounds = div (sampleSize + particles - 1) particles
     smcIteration = runEmpiricalT $ smc observations particles model
   in
-    fmap (map (uncurry $ flip seq) . take sampleSize . concat) $ sequence $ replicate rounds smcIteration
-
-mhByTimeAlg :: BayesAlg a a
-mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
-
----------------------
--- LISTS OF MODELS --
----------------------
-
-type BayesM a = forall m. MonadBayes m => m a
-type DistM  a = forall m. MonadDist  m => m a
+    fmap (map (uncurry $ flip seq) . concat) $ sequence $ replicate rounds smcIteration
 
 -- | Map model names to the number of observations
 -- to have particles of equal weight in SMC.
@@ -147,6 +144,13 @@ modelObs =
   , ("HMM.hmm", 15)
   -- dpmixture?
   ]
+
+---------------------
+-- LISTS OF MODELS --
+---------------------
+
+type BayesM a = forall m. MonadBayes m => m a
+type DistM  a = forall m. MonadDist  m => m a
 
 -- Models measure fit by 2-sample Kolmogorov-Smirnov test
 ksDouble :: [(String, BayesM Double, String, DistM Double)]
