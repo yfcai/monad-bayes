@@ -1,4 +1,6 @@
 import Test.Hspec
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
 
 import qualified TestWeighted
 import qualified TestDist
@@ -63,6 +65,10 @@ main = hspec $ do
       seq TestInference.check_terminate_smc () `shouldBe` ()
     it "preserves the distribution on the sprinkler model" $ do
       TestInference.check_preserve_smc `shouldBe` True
+    prop "number of samples is equal to the number of particles" $
+      \observations particles ->
+        observations >= 0 && particles >= 1 ==>
+          TestInference.check_particles observations particles == particles
   describe "MH" $ do
     it "MH from prior leaves posterior invariant" $ do
       TestInference.check_prior_trans `shouldBe` True

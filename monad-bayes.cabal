@@ -44,6 +44,7 @@ test-suite monad-bayes-test
   build-depends:       base
                      , monad-bayes
                      , hspec
+                     , QuickCheck
                      , random
                      , ieee754
                      , mtl
