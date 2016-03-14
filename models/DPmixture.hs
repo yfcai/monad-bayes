@@ -7,6 +7,7 @@ module DPmixture (
                   stick,
                   dp,
                   dpMixture,
+                  dpMem,
                   dpClusters,
                   posteriorClustersDist
                  ) where
