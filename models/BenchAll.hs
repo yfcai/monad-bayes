@@ -40,14 +40,14 @@ import qualified Trace.ByType as ByType
 --
 -- To run the benchmark for an hour to improve accuracy,
 -- run
---   stack bench --benchmark-arguments '-L120 -oout.html --csv summary.csv' 2> fit.csv
+--   stack bench --benchmark-arguments '-G -L30 -oout.html --csv summary.csv 2> fit.csv
 myDefaultConfig = defaultConfig
   { timeLimit = 0.1
   }
 
 sampleSizes :: Bool -> [Int]
 sampleSizes False = [128]
-sampleSizes True  = [1024, 8128 .. 131072] -- 16 data points
+sampleSizes True  = [1024, 8064 .. 65536] -- 10 data points
 
 randomGens :: Bool -> [StdGen]
 randomGens False = [mkStdGen 0]
