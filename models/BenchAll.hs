@@ -31,6 +31,7 @@ import Dist
 import Empirical
 import Inference
 import Metrics
+import Particle (ParticleT)
 import Sampler
 import qualified Trace.ByDist as ByDist
 import qualified Trace.ByTime as ByTime
@@ -97,7 +98,8 @@ type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 -- | Algorithms to benchmark performance
 bayesAlgs :: [(String, BayesAlg a a)]
 bayesAlgs =
-  [ ("importance", importanceAlg)
+  [ ("pimh", pimhAlg)
+  , ("importance", importanceAlg)
   , ("smc"       , smcAlg       )
   , ("mh by time", mhByTimeAlg  )
   ]
@@ -108,7 +110,8 @@ type MultiSampler a = forall m. MonadDist m => String -> BayesM a -> [Int] -> m 
 -- | Algorithms to benchmark goodness of fit
 multiSamplers :: [(String, MultiSampler a)]
 multiSamplers =
-  [ ("mh by time", \x m -> collectPrefixes (mhByTimeAlg x m))
+  [ ("pimh", \x m -> collectPrefixes (pimhAlg x m))
+  , ("mh by time", \x m -> collectPrefixes (mhByTimeAlg x m))
   , ("smc",        \x m -> collectReruns   (smcAlg      x m))
   ]
 
@@ -123,16 +126,25 @@ mhByTimeAlg :: BayesAlg a a
 mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
 
 smcAlg :: BayesAlg a a
-smcAlg modelName model sampleSize =
+smcAlg = smcTemplate $ \observations particles sampleSize model ->
+  let
+    rounds = div (sampleSize + particles - 1) particles
+    smcIteration = runEmpiricalT $ smc observations particles model
+  in
+    fmap (map (uncurry $ flip seq) . concat) $ sequence $ replicate rounds smcIteration
+
+pimhAlg :: BayesAlg a a
+pimhAlg = smcTemplate pimh
+
+smcTemplate :: (forall m. MonadDist m => Int -> Int -> Int -> ParticleT (EmpiricalT m) a -> m [a]) -> BayesAlg a a
+smcTemplate alg modelName model sampleSize =
   let
     observations = case lookup modelName modelObs of
                      Just obs -> obs
                      Nothing  -> error $ "Model not found in `modelObs`: " ++ modelName
     particles = min sampleSize 128
-    rounds = div (sampleSize + particles - 1) particles
-    smcIteration = runEmpiricalT $ smc observations particles model
   in
-    fmap (map (uncurry $ flip seq) . concat) $ sequence $ replicate rounds smcIteration
+    alg observations particles sampleSize model
 
 -- | Map model names to the number of observations
 -- to have particles of equal weight in SMC.
