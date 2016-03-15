@@ -48,7 +48,7 @@ myDefaultConfig = defaultConfig
 
 sampleSizes :: Bool -> [Int]
 sampleSizes False = [1024,2944..16384]
-sampleSizes True  = [1024, 8960 .. 32768] -- 4 data points
+sampleSizes True  = [4096,8192..32768] -- 8 data points
 
 randomGens :: Bool -> [StdGen]
 randomGens False = [mkStdGen 0]
@@ -98,8 +98,8 @@ type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 -- | Algorithms to benchmark performance
 bayesAlgs :: [(String, BayesAlg a a)]
 bayesAlgs =
-  [ ("smc"       , smcAlg       )
-  , ("mh by time", mhByTimeAlg  )
+  [ ("mh by time", mhByTimeAlg  )
+  , ("smc"       , smcAlg       )
   , ("pimh"      , pimhAlg      )
   --, ("importance", importanceAlg)
   ]
