@@ -9,6 +9,7 @@ module DPmixture (
                   dpMixture,
                   dpMem,
                   dpClusters,
+                  dpMemClusters,
                   posteriorClustersDist
                  ) where
 
@@ -118,7 +119,7 @@ dpMem = startEvalMemoT $ mapM process_point obs where
       if stop then return (c, mean, var) else stick (c+1)
 
 dpMemClusters :: MonadBayes d => d Int
-dpMemClusters = fmap (maximum . normalizePartition) dpMixture
+dpMemClusters = fmap (maximum . normalizePartition) dpMem
 
 ----------------------------------------------------------
 -- Exact posterior

@@ -97,3 +97,5 @@ main = hspec $ do
       TestSMCObservations.check_smc_weight 16 20 HMM.hmm `shouldBe` True
     it "10 observations for DPmixture.dpMem" $ do
       TestSMCObservations.check_smc_weight 10 20 DPmixture.dpMem `shouldBe` True
+    it "10 observations for DPmixture.dpMem" $ do
+      TestSMCObservations.check_smc_weight 10 20 DPmixture.dpMemClusters `shouldBe` True
