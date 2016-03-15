@@ -16,9 +16,9 @@ import Control.Monad.Par.Class (NFData)
 import Criterion.Main
 import Criterion.Main.Options
 import Criterion.Types
-import Data.List (intercalate)
+import Data.List (intercalate, transpose)
 import Data.Maybe
-import Data.Number.LogFloat
+import Data.Number.LogFloat hiding (sum)
 import Data.Random (RVar, sampleState)
 import Data.Typeable
 import Options.Applicative (execParser)
@@ -47,12 +47,12 @@ myDefaultConfig = defaultConfig
   }
 
 sampleSizes :: Bool -> [Int]
-sampleSizes False = [32768]
+sampleSizes False = [1024,2944..16384]
 sampleSizes True  = [1024, 8960 .. 32768] -- 4 data points
 
 randomGens :: Bool -> [StdGen]
 randomGens False = [mkStdGen 0]
-randomGens True  = splitManyTimes 64 (mkStdGen 0)
+randomGens True  = splitManyTimes 32 (mkStdGen 0)
   where
     splitManyTimes 1 g = [g]
     splitManyTimes n g = let (g1, g2) = split g in g1 : splitManyTimes (n - 1) g2
@@ -72,7 +72,7 @@ main = do
   --putStr   $ unlines $ runAllKSTests gs ns
   putStrLn ""
 
-  runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
+  --runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
 
 ----------------------
 -- LIST OF SAMPLERS --
@@ -82,8 +82,8 @@ type SampleFunction a = (forall m. MonadDist m => m a) -> StdGen -> a
 
 samplers :: [(String, SampleFunction a)]
 samplers =
-  [ ("monad-bayes sampler", sample)
-  , ("random-fu sampler"  , randomFuSampler)
+  [ ("random-fu sampler"  , randomFuSampler)
+  --, ("monad-bayes sampler", sample)
   ]
 
 randomFuSampler :: forall a. SampleFunction a
@@ -98,10 +98,10 @@ type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 -- | Algorithms to benchmark performance
 bayesAlgs :: [(String, BayesAlg a a)]
 bayesAlgs =
-  [ ("pimh", pimhAlg)
-  --, ("importance", importanceAlg)
-  , ("smc"       , smcAlg       )
+  [ ("smc"       , smcAlg       )
   , ("mh by time", mhByTimeAlg  )
+  , ("pimh"      , pimhAlg      )
+  --, ("importance", importanceAlg)
   ]
 
 
@@ -110,9 +110,11 @@ type MultiSampler a = forall m. MonadDist m => String -> BayesM a -> [Int] -> m 
 -- | Algorithms to benchmark goodness of fit
 multiSamplers :: [(String, MultiSampler a)]
 multiSamplers =
-  [ ("pimh", \x m -> collectPrefixes (pimhAlg x m))
-  , ("mh by time", \x m -> collectPrefixes (mhByTimeAlg x m))
+  [
+    ("mh by time", \x m -> collectPrefixes (mhByTimeAlg x m))
+  , ("mhPrior",    \x m -> collectPrefixes (flip mhPrior  m))
   , ("smc",        \x m -> collectReruns   (smcAlg      x m))
+  -- , ("pimh",       \x m -> collectPrefixes (pimhAlg     x m)) -- enable alone later, is slow.
   ]
 
 runBayesAlg :: BayesAlg a b -> String -> BayesM a -> SampleFunction [b] -> Int -> Int -> [b]
@@ -127,23 +129,25 @@ mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
 
 -- use sample size as # particles
 smcAlg :: BayesAlg a a
-smcAlg = smcTemplate $ \observations particles sampleSize model ->
+smcAlg = smcTemplate id $ \observations particles sampleSize model ->
   let
     particles = sampleSize
     smcIteration = runEmpiricalT $ smc observations particles model
   in
-    fmap (map (uncurry $ flip seq) . concat) smcIteration
+    fmap (map (uncurry $ flip seq)) smcIteration
 
 pimhAlg :: BayesAlg a a
-pimhAlg = smcTemplate pimh
+pimhAlg = smcTemplate (min 64) pimh
 
-smcTemplate :: (forall m. MonadDist m => Int -> Int -> Int -> ParticleT (EmpiricalT m) a -> m [a]) -> BayesAlg a a
-smcTemplate alg modelName model sampleSize =
+smcTemplate ::
+  (Int -> Int) -> -- compute number of particles from sample size
+  (forall m. MonadDist m => Int -> Int -> Int -> ParticleT (EmpiricalT m) a -> m [a]) -> BayesAlg a a
+smcTemplate getParticles alg modelName model sampleSize =
   let
     observations = case lookup modelName modelObs of
                      Just obs -> obs
                      Nothing  -> error $ "Model not found in `modelObs`: " ++ modelName
-    particles = min sampleSize 128
+    particles = getParticles sampleSize
   in
     alg observations particles sampleSize model
 
@@ -163,6 +167,7 @@ modelObs =
   , ("BetaBin.urn"    , 0)
   , ("HMM.hmm"        , 16)
   , ("DPmixture.dpMem", 10)
+  , ("DPmixture.dpMemClusters", 10)
   ]
 
 ---------------------
@@ -171,6 +176,7 @@ modelObs =
 
 type BayesM a = forall m. MonadBayes m => m a
 type DistM  a = forall m. MonadDist  m => m a
+type DistMs a = forall m. MonadDist  m => [m a]
 
 -- Models measure fit by 2-sample Kolmogorov-Smirnov test
 ksDouble :: [(String, BayesM Double, String, DistM Double)]
@@ -185,10 +191,19 @@ ksDouble =
 
 klInt :: [(String, BayesM Int, String, BayesM Int)]
 klInt =
+  [ ("DPmixture.dpMemClusters", DPmixture.dpMemClusters, "posteriorClustersDist", DPmixture.posteriorClustersDist) ]
+{-
   [ ("Dice.dice"     , Dice.dice 5   , "Dice.dice"     , Dice.dice 5   )
   , ("Dice.dice_hard", Dice.dice_hard, "Dice.dice_hard", Dice.dice_hard)
   , ("Dice.dice_soft", Dice.dice_soft, "Dice.dice_soft", Dice.dice_soft)
   ]
+-}
+
+{- HMM.exactMarginals isn't working
+klInts :: [(String, BayesM [Int], String, DistMs Int)]
+klInts =
+  [ ("HMM.hmm", HMM.hmm, "HMM.exactMarginals", HMM.exactMarginals) ]
+-}
 
 klBools :: [(String, BayesM [Bool], String, BayesM [Bool])]
 klBools =
@@ -196,7 +211,7 @@ klBools =
   , ("BetaBin.urn"   , BetaBin.urn 5   , "BetaBin.urn", BetaBin.urn 5)
   ]
 
--- Models too big to test by KL divergence.
+-- Models too big to test by enumerating
 bayesInts :: [(String, BayesM [Int], (), ())]
 bayesInts =
   [ ("HMM.hmm", HMM.hmm, (), ())
@@ -258,22 +273,46 @@ csvHeader sampleSizes = "model,reference,algorithm,sampler,test," ++ intercalate
 runKLDiv :: (NFData a, Ord a, Typeable a) =>
             [StdGen] -> [Int] -> [(String, BayesM a, String, BayesM a)] -> [String]
 runKLDiv randomGens sampleSizes klModels =
-  [ let
-      collections = sampler (alg modelName model sampleSizes) randomGen
-      klTestResults = map (flip kullbackLeibnerTest ref) collections
+  [
+    let
+      results =
+        [ let
+            collections = sampler (alg modelName model sampleSizes) randomGen
+            klTestResults = map (flip kullbackLeibnerTest ref) collections
+          in
+            klTestResults
+        | randomGen <- randomGens
+        ]
+      averagedResults = map (\xs -> sum xs / fromIntegral (length xs)) $ transpose results
     in
       printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KL divergence" ++
-        intercalate "," (map show klTestResults)
+          intercalate "," (map show averagedResults)
   | (modelName, model, refName, ref) <- klModels
   , (algName, alg)                   <- multiSamplers
   , (samplerName, sampler)           <- samplers
-  , randomGen                        <- randomGens
   ]
+
 
 runAllKLDiv :: [StdGen] -> [Int] -> [String]
 runAllKLDiv randomGens sampleSizes =
-  runKLDiv randomGens sampleSizes klInt   ++
-  runKLDiv randomGens sampleSizes klBools
+  --runKLDiv randomGens sampleSizes klBools   ++
+  runKLDiv randomGens sampleSizes klInt
+
+{- pending fix of HMM.exactMarginals
+  [ let
+      collections = sampler (alg modelName model sampleSizes) randomGen  :: [[ [Int] ]] -- one per sample size
+      getKL :: [[Int]] -> Double
+      getKL samples = sum $ zipWith kullbackLeibnerTest (transpose samples) refs
+      klTestResults = map getKL collections
+    in
+      printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KL divergence" ++
+        intercalate "," (map show klTestResults)
+  | (modelName, model, refName, refs) <- klInts
+  , (algName, alg)                    <- multiSamplers
+  , (samplerName, sampler)            <- samplers
+  , randomGen                         <- randomGens
+  ]
+-}
 
 -- | Plot supremum norm of the difference of empirical
 -- density functions between two samples.

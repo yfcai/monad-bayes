@@ -30,7 +30,7 @@ type NormalInvGamma = (Double,Double,Double,Double)
 
 -- | Prior over cluster parameters used in 'dpMixture'
 params :: NormalInvGamma
-params = (0,1/10,1,10)
+params = (0,1,1,1)
 (m,k,a,b) = params
 
 obs :: [Double]
