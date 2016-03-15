@@ -273,23 +273,16 @@ csvHeader sampleSizes = "model,reference,algorithm,sampler,test," ++ intercalate
 runKLDiv :: (NFData a, Ord a, Typeable a) =>
             [StdGen] -> [Int] -> [(String, BayesM a, String, BayesM a)] -> [String]
 runKLDiv randomGens sampleSizes klModels =
-  [
-    let
-      results =
-        [ let
-            collections = sampler (alg modelName model sampleSizes) randomGen
-            klTestResults = map (flip kullbackLeibnerTest ref) collections
-          in
-            klTestResults
-        | randomGen <- randomGens
-        ]
-      averagedResults = map (\xs -> sum xs / fromIntegral (length xs)) $ transpose results
+  [ let
+      collections = sampler (alg modelName model sampleSizes) randomGen
+      klTestResults = map (flip kullbackLeibnerTest ref) collections
     in
       printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KL divergence" ++
-          intercalate "," (map show averagedResults)
+        intercalate "," (map show klTestResults)
   | (modelName, model, refName, ref) <- klModels
   , (algName, alg)                   <- multiSamplers
   , (samplerName, sampler)           <- samplers
+  , randomGen                        <- randomGens
   ]
 
 
@@ -320,12 +313,14 @@ runKSTest :: (NFData a, Ord a, Typeable a) =>
              [StdGen] -> [Int] -> [(String, BayesM a, String, DistM a)] -> [String]
 runKSTest randomGens sampleSizes ksModels =
   [ let
-      collections = sampler (alg modelName model sampleSizes) randomGen
-      klTestResults = map (flip kullbackLeibnerTest ref) collections
+      (gen1, gen2) = split randomGen
+      collections = sampler (alg modelName model sampleSizes) gen1
+      refsamples  = sampler (sequence $ map (\n -> sequence $ replicate n ref) sampleSizes) gen2
+      ksTestResults = zipWith supEDFdistance collections refsamples
     in
-      printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KL divergence" ++
-        intercalate "," (map show klTestResults)
-  | (modelName, model, refName, ref) <- klModels
+      printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KS test" ++
+        intercalate "," (map show ksTestResults)
+  | (modelName, model, refName, ref) <- ksModels
   , (algName, alg)                   <- multiSamplers
   , (samplerName, sampler)           <- samplers
   , randomGen                        <- randomGens
