@@ -320,14 +320,12 @@ runKSTest :: (NFData a, Ord a, Typeable a) =>
              [StdGen] -> [Int] -> [(String, BayesM a, String, DistM a)] -> [String]
 runKSTest randomGens sampleSizes ksModels =
   [ let
-      (gen1, gen2) = split randomGen
-      collections = sampler (alg modelName model sampleSizes) gen1
-      refsamples  = sampler (sequence $ map (\n -> sequence $ replicate n ref) sampleSizes) gen2
-      ksTestResults = zipWith supEDFdistance collections refsamples
+      collections = sampler (alg modelName model sampleSizes) randomGen
+      klTestResults = map (flip kullbackLeibnerTest ref) collections
     in
-      printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KS test" ++
-        intercalate "," (map show ksTestResults)
-  | (modelName, model, refName, ref) <- ksModels
+      printf "%s,%s,%s,%s,%s," modelName refName algName samplerName "KL divergence" ++
+        intercalate "," (map show klTestResults)
+  | (modelName, model, refName, ref) <- klModels
   , (algName, alg)                   <- multiSamplers
   , (samplerName, sampler)           <- samplers
   , randomGen                        <- randomGens
