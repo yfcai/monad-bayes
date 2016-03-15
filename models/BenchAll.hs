@@ -47,8 +47,8 @@ myDefaultConfig = defaultConfig
   }
 
 sampleSizes :: Bool -> [Int]
-sampleSizes False = [128]
-sampleSizes True  = [1024, 8064 .. 65536] -- 10 data points
+sampleSizes False = [32768]
+sampleSizes True  = [1024, 8960 .. 32768] -- 4 data points
 
 randomGens :: Bool -> [StdGen]
 randomGens False = [mkStdGen 0]
@@ -69,7 +69,7 @@ main = do
   putStrLn ""
   putStrLn $ csvHeader ns
   putStr   $ unlines $ runAllKLDiv   gs ns
-  putStr   $ unlines $ runAllKSTests gs ns
+  --putStr   $ unlines $ runAllKSTests gs ns
   putStrLn ""
 
   runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
@@ -99,7 +99,7 @@ type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 bayesAlgs :: [(String, BayesAlg a a)]
 bayesAlgs =
   [ ("pimh", pimhAlg)
-  , ("importance", importanceAlg)
+  --, ("importance", importanceAlg)
   , ("smc"       , smcAlg       )
   , ("mh by time", mhByTimeAlg  )
   ]
@@ -125,13 +125,14 @@ importanceAlg modelName model sampleSize =
 mhByTimeAlg :: BayesAlg a a
 mhByTimeAlg modelName model sampleSize = mh' ByTime.empty sampleSize model
 
+-- use sample size as # particles
 smcAlg :: BayesAlg a a
 smcAlg = smcTemplate $ \observations particles sampleSize model ->
   let
-    rounds = div (sampleSize + particles - 1) particles
+    particles = sampleSize
     smcIteration = runEmpiricalT $ smc observations particles model
   in
-    fmap (map (uncurry $ flip seq) . concat) $ sequence $ replicate rounds smcIteration
+    fmap (map (uncurry $ flip seq) . concat) smcIteration
 
 pimhAlg :: BayesAlg a a
 pimhAlg = smcTemplate pimh
