@@ -12,11 +12,12 @@ import qualified DPmixture
 import qualified Gamma
 import qualified HMM
 
+import Control.Monad
 import Control.Monad.Par.Class (NFData)
 import Criterion.Main
 import Criterion.Main.Options
 import Criterion.Types
-import Data.List (intercalate, transpose)
+import Data.List (intercalate, transpose, nub)
 import Data.Maybe
 import Data.Number.LogFloat hiding (sum)
 import Data.Random (RVar, sampleState)
@@ -25,6 +26,8 @@ import Options.Applicative (execParser)
 import System.IO
 import System.Random (StdGen, mkStdGen, split)
 import Text.Printf
+
+import Debug.Trace
 
 import Base
 import Dist
@@ -36,6 +39,62 @@ import Sampler
 import qualified Trace.ByDist as ByDist
 import qualified Trace.ByTime as ByTime
 import qualified Trace.ByType as ByType
+
+
+-- process Anglican fit result
+
+main = do
+  lmh <- fmap transpose $ sequence $ map processFile lmhFiles
+  smc <- fmap transpose $ sequence $ map processFile smcFiles
+
+  let sane = nub (map (\ys -> nub (map (\(n,xs) -> length (nub (map snd xs)) == 1) ys) == [True]) smc) == [True]
+  when (not sane) $ error "smc samples have different weights"
+
+  let sane = nub (map (\xs -> length (nub (map fst xs)) == 1) lmh) == [True]
+          && nub (map (\xs -> length (nub (map fst xs)) == 1) smc) == [True]
+  when (not sane) $ error "files have different sample sizes"
+
+  --
+
+  where
+    lmhNames = words "lmh lmh2 lmh3 lmh4 lmh5"
+    smcNames = words "smc smc2 smc3 smc4 smc5"
+    lmhFiles = map (\s -> "log/anglican/" ++ s ++ ".txt") lmhNames
+    smcFiles = map (\s -> "log/anglican/" ++ s ++ ".txt") smcNames
+    processFile :: String -> IO [(Int,[(Double,Double)])]
+    processFile file = do
+      s <- readFile file
+      return $ processLines $ drop 4 $ lines s
+    processLines :: [String] -> [(Int,[(Double,Double)])]
+    processLines (ndesc : xs) | not (null ndesc) =
+      let
+        n = read ndesc
+        (ns, rest) = splitAt n xs
+      in
+        (n, map (\x -> let [v, w] = words x in (read v, read w)) ns) : processLines rest
+    processLines otherwise = []
+
+    getKL :: [(Double, Double)] -> Double
+    getKL xs = undefined
+      -- kullbackLeibnerTest (map fst xs) DPmixture.posteriorClustersDist
+
+
+
+main_bench = do
+  hSetBuffering stdout LineBuffering
+
+  wat <- execParser (describe myDefaultConfig)
+  let longRunning = forceGCUnset wat
+  let ns = sampleSizes longRunning
+  let gs = randomGens  longRunning
+
+  putStrLn ""
+  putStrLn $ csvHeader ns
+  putStr   $ unlines $ runAllKLDiv   gs ns
+  --putStr   $ unlines $ runAllKSTests gs ns
+  putStrLn ""
+
+  --runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
 
 -- | Terminate ASAP by default.
 --
@@ -56,23 +115,6 @@ randomGens True  = splitManyTimes 32 (mkStdGen 0)
   where
     splitManyTimes 1 g = [g]
     splitManyTimes n g = let (g1, g2) = split g in g1 : splitManyTimes (n - 1) g2
-
-main :: IO ()
-main = do
-  hSetBuffering stdout LineBuffering
-
-  wat <- execParser (describe myDefaultConfig)
-  let longRunning = forceGCUnset wat
-  let ns = sampleSizes longRunning
-  let gs = randomGens  longRunning
-
-  putStrLn ""
-  putStrLn $ csvHeader ns
-  putStr   $ unlines $ runAllKLDiv   gs ns
-  --putStr   $ unlines $ runAllKSTests gs ns
-  putStrLn ""
-
-  --runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
 
 ----------------------
 -- LIST OF SAMPLERS --

@@ -10,7 +10,8 @@ module DPmixture (
                   dpMem,
                   dpClusters,
                   dpMemClusters,
-                  posteriorClustersDist
+                  posteriorClustersDist,
+                  normalizePartition
                  ) where
 
 -- Dirichlet Process mixture of Gaussians
