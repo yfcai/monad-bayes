@@ -1,0 +1,31 @@
+model,reference,algorithm,sampler,test,1024,4096,16384
+BetaBin.latent,BetaBin.urn,mh by time,monad-bayes sampler,KL divergence,0.12402347327724542,8.421070139860799e-2,2.3736322212891917e-2
+BetaBin.latent,BetaBin.urn,mh by time,random-fu sampler,KL divergence,0.21245793740852764,0.12662053461848094,1.0264138251265029e-2
+BetaBin.latent,BetaBin.urn,mhPrior,monad-bayes sampler,KL divergence,1.7455675355910843e-2,5.662000564759681e-3,1.3485845726121312e-3
+BetaBin.latent,BetaBin.urn,mhPrior,random-fu sampler,KL divergence,1.8626844701439414e-2,4.549262875363695e-3,9.740280846346953e-4
+BetaBin.latent,BetaBin.urn,smc,monad-bayes sampler,KL divergence,1.5856737407719167e-2,4.1859551297514525e-3,6.64287611431078e-4
+BetaBin.latent,BetaBin.urn,smc,random-fu sampler,KL divergence,1.8626844701439414e-2,4.827940332474354e-3,9.071648621872463e-4
+BetaBin.urn,BetaBin.urn,mh by time,monad-bayes sampler,KL divergence,0.11174328432100111,2.8033210048675976e-2,3.6355730125350342e-3
+BetaBin.urn,BetaBin.urn,mh by time,random-fu sampler,KL divergence,0.13998989345881457,2.1477404169436408e-2,5.148233366322418e-3
+BetaBin.urn,BetaBin.urn,mhPrior,monad-bayes sampler,KL divergence,1.4461947804669887e-2,3.7969951574189794e-3,8.58132007286909e-4
+BetaBin.urn,BetaBin.urn,mhPrior,random-fu sampler,KL divergence,1.2236237205155891e-2,3.423978912513258e-3,6.867964436686634e-4
+BetaBin.urn,BetaBin.urn,smc,monad-bayes sampler,KL divergence,1.623266973077326e-2,4.257170790148129e-3,1.1282538920022603e-3
+BetaBin.urn,BetaBin.urn,smc,random-fu sampler,KL divergence,1.2236237205155891e-2,2.454198948594594e-3,6.982950104397218e-4
+Dice.dice,Dice.dice,mh by time,monad-bayes sampler,KL divergence,2.0306260498208488e-2,7.548769336416464e-3,1.4542228325242301e-3
+Dice.dice,Dice.dice,mh by time,random-fu sampler,KL divergence,9.866020542604834e-3,2.9024066367542203e-3,1.5166169856335432e-3
+Dice.dice,Dice.dice,mhPrior,monad-bayes sampler,KL divergence,9.841944314736215e-3,5.125184845369637e-3,9.337487739611355e-4
+Dice.dice,Dice.dice,mhPrior,random-fu sampler,KL divergence,1.300679547563317e-2,3.611187511234428e-3,8.507994876011732e-4
+Dice.dice,Dice.dice,smc,monad-bayes sampler,KL divergence,9.86196938396273e-3,2.8255282064437435e-3,1.0187578588527332e-3
+Dice.dice,Dice.dice,smc,random-fu sampler,KL divergence,1.300679547563317e-2,4.105638999519712e-3,9.065069037853865e-4
+Dice.dice_hard,Dice.dice_hard,mh by time,monad-bayes sampler,KL divergence,2.75752061871131e-3,1.7421432458055615e-3,1.5551722686561568e-4
+Dice.dice_hard,Dice.dice_hard,mh by time,random-fu sampler,KL divergence,4.998283108178058e-3,8.829067916848822e-4,5.126444309959495e-4
+Dice.dice_hard,Dice.dice_hard,mhPrior,monad-bayes sampler,KL divergence,8.290061785044465e-3,6.959940051434973e-4,3.8777758930330446e-4
+Dice.dice_hard,Dice.dice_hard,mhPrior,random-fu sampler,KL divergence,5.048561185529407e-3,8.056053637904313e-4,4.6906829333307284e-4
+Dice.dice_hard,Dice.dice_hard,smc,monad-bayes sampler,KL divergence,3.5660715431281966e-3,1.4951173586779233e-3,2.861999148534081e-4
+Dice.dice_hard,Dice.dice_hard,smc,random-fu sampler,KL divergence,1.1895923922688106e-2,6.276635869945347e-4,1.0166946283330408e-3
+Dice.dice_soft,Dice.dice_soft,mh by time,monad-bayes sampler,KL divergence,3.186632312927538e-3,1.2987879767517594e-3,5.775763795279286e-4
+Dice.dice_soft,Dice.dice_soft,mh by time,random-fu sampler,KL divergence,1.4523883248438852e-2,3.233770955146013e-3,4.5619178770434825e-4
+Dice.dice_soft,Dice.dice_soft,mhPrior,monad-bayes sampler,KL divergence,5.409431132372586e-3,1.3470227619310695e-3,3.3688145684830856e-4
+Dice.dice_soft,Dice.dice_soft,mhPrior,random-fu sampler,KL divergence,1.200769253878063e-2,1.537951792821456e-3,7.967482768541559e-4
+Dice.dice_soft,Dice.dice_soft,smc,monad-bayes sampler,KL divergence,7.5285211233160395e-3,1.5609224823135669e-3,4.7917753994369014e-4
+Dice.dice_soft,Dice.dice_soft,smc,random-fu sampler,KL divergence,9.869835576316741e-3,9.08713653873996e-4,6.024131256563568e-4

@@ -1,0 +1,43 @@
+nohup: ignoring input and appending output to 'nohup.out'
+monad-bayes-0.1.0.0: unregistering (local file changes: models/BenchAll.hs)
+monad-bayes-0.1.0.0: build (lib + bench)
+Preprocessing library monad-bayes-0.1.0.0...
+In-place registering monad-bayes-0.1.0.0...
+Preprocessing benchmark 'monad-bayes-bench' for monad-bayes-0.1.0.0...
+[6 of 6] Compiling Main             ( models/BenchAll.hs, .stack-work/dist/x86_64-linux/Cabal-1.22.4.0/build/monad-bayes-bench/monad-bayes-bench-tmp/Main.o )
+Linking .stack-work/dist/x86_64-linux/Cabal-1.22.4.0/build/monad-bayes-bench/monad-bayes-bench ...
+Warning: modules not listed in monad-bayes.cabal for 'monad-bayes-test' component (add to other-modules):
+    BetaBin
+    DPmixture
+    Dice
+    Gamma
+    HMM
+    TestSMCObservations
+    TestTrace
+monad-bayes-0.1.0.0: copy/register
+Installing library in
+/home/yfcai/monad-bayes/.stack-work/install/x86_64-linux/lts-3.9/7.10.2/lib/x86_64-linux-ghc-7.10.2/monad-bayes-0.1.0.0-FB4ngomGzdaHtpFk26Avel
+Registering monad-bayes-0.1.0.0...
+monad-bayes-0.1.0.0: benchmarks
+Running 1 benchmarks...
+Benchmark monad-bayes-bench: RUNNING...
+
+model,reference,algorithm,sampler,test,2048,4096,6144,8192,10240,12288,14336,16384
+DPmixture.dpMemClusters,posteriorClustersDist,mh by time,random-fu sampler,KL divergence,0.23901229521591566,0.24413880370790916,0.17148036271845898,0.1465277132844856,0.10963271240512798,4.7565568013755916e-2,2.3865727790163917e-2,3.323551027114486e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mh by time,random-fu sampler,KL divergence,0.32824128167339656,0.3027795392894078,0.3126171691161942,0.4466261204904939,0.5470628709279215,0.5992630407500085,0.5898236893388303,0.6791177990280054
+DPmixture.dpMemClusters,posteriorClustersDist,mh by time,random-fu sampler,KL divergence,0.7410581557892101,0.38517808357673766,0.1849807056202473,0.159695680584376,0.10608070056336591,4.992201049481998e-2,5.067478967613418e-2,5.542184759070405e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mh by time,random-fu sampler,KL divergence,0.1280102365788441,0.24710409808705333,5.575364146439119e-2,0.19151734649341073,0.21916198745148346,0.17430904980200543,0.11752009497455203,7.116286977661197e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mh by time,random-fu sampler,KL divergence,1.9322557915070753,1.1614405091677125,0.5087833327178203,0.29828027085548386,0.21906798736616698,0.15658724313079453,0.10285584728813527,8.124679702030857e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mhPrior,random-fu sampler,KL divergence,3.3533959778821516e-2,2.470862149604337e-2,4.812609414526524e-2,2.559263231616306e-2,1.989567233035794e-2,1.4572754679734179e-2,1.3067944226725452e-2,1.8084476650684037e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mhPrior,random-fu sampler,KL divergence,0.4736443997591139,0.1520567697742611,8.518317715284676e-2,6.458380988919403e-2,5.348003281948867e-2,4.772591825673478e-2,3.569890985318304e-2,3.8315871117293315e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mhPrior,random-fu sampler,KL divergence,6.961875643611766e-2,2.8078278728707495e-2,1.4440183974303234e-2,2.22391277092389e-2,3.900323810897491e-2,1.892782927259805e-2,1.602427987806947e-2,2.3566674568727065e-2
+DPmixture.dpMemClusters,posteriorClustersDist,mhPrior,random-fu sampler,KL divergence,0.4395195811583079,0.38917887343270113,0.5917672028116258,0.5533367641207156,0.5074627161098288,0.3436335105605616,0.26748436513698665,0.21088277282810902
+DPmixture.dpMemClusters,posteriorClustersDist,mhPrior,random-fu sampler,KL divergence,0.11455574898238649,0.13699404915610555,8.54167917190632e-2,4.398446640833385e-2,3.6884585236409514e-2,2.3401396212972235e-2,4.2105959403588925e-2,8.935722119724966e-2
+DPmixture.dpMemClusters,posteriorClustersDist,smc,random-fu sampler,KL divergence,2.5122591644313234e-2,1.3256902233892549e-2,2.3905435429095376e-2,3.36134644942068e-2,5.747239130242302e-2,8.721673535445914e-3,3.1912673783525226e-2,5.040686031540241e-3
+DPmixture.dpMemClusters,posteriorClustersDist,smc,random-fu sampler,KL divergence,0.13167390871253465,5.552057495856946e-2,9.335779150308214e-3,9.446781684569085e-3,1.5533323982392207e-2,2.0210019989579296e-2,5.2799944945560884e-3,6.423980991602756e-3
+DPmixture.dpMemClusters,posteriorClustersDist,smc,random-fu sampler,KL divergence,5.430576738268235e-2,2.945025354917099e-2,3.2498272329716416e-2,8.336421323122265e-3,2.4776221531734276e-2,8.133583115810139e-3,1.6389065903578633e-2,1.4242072797575521e-2
+DPmixture.dpMemClusters,posteriorClustersDist,smc,random-fu sampler,KL divergence,5.524765863407873e-2,8.826688817032007e-3,6.624518574400725e-3,3.73630713006062e-2,2.2285747199289625e-2,2.9877820782752716e-2,1.1122038824457649e-2,8.177061355272509e-3
+DPmixture.dpMemClusters,posteriorClustersDist,smc,random-fu sampler,KL divergence,1.587815405359457e-2,2.2297007914341242e-2,1.0654684202261384e-2,2.5220530912688558e-2,2.236290163539659e-2,2.8581060970203572e-2,1.2384930164569439e-2,1.7486328044406384e-2
+
+Benchmark monad-bayes-bench: FINISH
+Completed 2 action(s).

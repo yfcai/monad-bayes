@@ -1,0 +1,33 @@
+nohup: ignoring input and appending output to 'nohup.out'
+monad-bayes-0.1.0.0: unregistering (local file changes: models/BenchAll.hs)
+monad-bayes-0.1.0.0: build (lib + bench)
+Preprocessing library monad-bayes-0.1.0.0...
+In-place registering monad-bayes-0.1.0.0...
+Preprocessing benchmark 'monad-bayes-bench' for monad-bayes-0.1.0.0...
+[6 of 6] Compiling Main             ( models/BenchAll.hs, .stack-work/dist/x86_64-linux/Cabal-1.22.4.0/build/monad-bayes-bench/monad-bayes-bench-tmp/Main.o )
+Linking .stack-work/dist/x86_64-linux/Cabal-1.22.4.0/build/monad-bayes-bench/monad-bayes-bench ...
+Warning: modules not listed in monad-bayes.cabal for 'monad-bayes-test' component (add to other-modules):
+    BetaBin
+    DPmixture
+    Dice
+    Gamma
+    HMM
+    TestSMCObservations
+    TestTrace
+monad-bayes-0.1.0.0: copy/register
+Installing library in
+/home/yfcai/monad-bayes/.stack-work/install/x86_64-linux/lts-3.9/7.10.2/lib/x86_64-linux-ghc-7.10.2/monad-bayes-0.1.0.0-FB4ngomGzdaHtpFk26Avel
+Registering monad-bayes-0.1.0.0...
+monad-bayes-0.1.0.0: benchmarks
+Running 1 benchmarks...
+Benchmark monad-bayes-bench: RUNNING...
+
+model,reference,algorithm,sampler,test,2048,4096,6144,8192,10240,12288,14336,16384
+DPmixture.dpMemClusters,posteriorClustersDist,pimh,random-fu sampler,KL divergence,1.7148680524406566e-2,2.067210219504947e-2,1.9719152959383344e-2,1.8222122204526653e-2,1.5627551135238733e-2,1.3671733720906519e-2,1.3729008695693077e-2,1.3881267450535808e-2
+DPmixture.dpMemClusters,posteriorClustersDist,pimh,random-fu sampler,KL divergence,8.833759652422586e-3,1.8847098923051787e-2,1.5481168970524078e-2,1.5808603516747635e-2,1.5904257198581084e-2,1.5449731999157602e-2,1.4602433871510221e-2,1.5675261728214186e-2
+DPmixture.dpMemClusters,posteriorClustersDist,pimh,random-fu sampler,KL divergence,3.201696994942852e-2,2.374540089508969e-2,1.812131873635355e-2,1.537413290562943e-2,1.5137937258976964e-2,1.5474638205655485e-2,1.5698947964069315e-2,1.5148661719227262e-2
+DPmixture.dpMemClusters,posteriorClustersDist,pimh,random-fu sampler,KL divergence,2.1095947841619042e-2,2.2854100983293664e-2,2.1857151457545042e-2,2.0015332885553395e-2,1.7709012774036064e-2,1.6600053262014778e-2,1.5690176020675507e-2,1.5989181098829842e-2
+DPmixture.dpMemClusters,posteriorClustersDist,pimh,random-fu sampler,KL divergence,1.6790721295145514e-2,1.810809803934534e-2,1.70242862172376e-2,1.5454228968344131e-2,1.4395394672658338e-2,1.5323604422712418e-2,1.374124855122155e-2,1.3314063606217853e-2
+
+Benchmark monad-bayes-bench: FINISH
+Completed 2 action(s).
