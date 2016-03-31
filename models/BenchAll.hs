@@ -43,7 +43,7 @@ import qualified Trace.ByType as ByType
 
 -- process Anglican fit result
 
-main = do
+main_fit_anglican = do
   lmh <- fmap transpose $ sequence $ map processFile lmhFiles
   smc <- fmap transpose $ sequence $ map processFile smcFiles
 
@@ -80,21 +80,21 @@ main = do
 
 
 
-main_bench = do
+main = do
   hSetBuffering stdout LineBuffering
 
   wat <- execParser (describe myDefaultConfig)
   let longRunning = forceGCUnset wat
   let ns = sampleSizes longRunning
   let gs = randomGens  longRunning
-
+{-
   putStrLn ""
   putStrLn $ csvHeader ns
   putStr   $ unlines $ runAllKLDiv   gs ns
   --putStr   $ unlines $ runAllKSTests gs ns
   putStrLn ""
-
-  --runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
+-}
+  runMode (resetForceGC wat) $ runAllWeightedBayes ns bayesAlgs
 
 -- | Terminate ASAP by default.
 --
@@ -106,7 +106,7 @@ myDefaultConfig = defaultConfig
   }
 
 sampleSizes :: Bool -> [Int]
-sampleSizes False = [1024,2944..16384]
+sampleSizes False = [1024]
 sampleSizes True  = [4096,8192..32768] -- 8 data points
 
 randomGens :: Bool -> [StdGen]
@@ -140,11 +140,15 @@ type BayesAlg a b = forall m. MonadDist m => String -> BayesM a -> Int -> m [b]
 -- | Algorithms to benchmark performance
 bayesAlgs :: [(String, BayesAlg a a)]
 bayesAlgs =
-  [ ("mh by time", mhByTimeAlg  )
-  , ("smc"       , smcAlg       )
+  [ --("mh by time", mhByTimeAlg  )
+  --, ("smc"       , smcAlg       )
+    ("mh-prior"  , mhPriorAlg)
   , ("pimh"      , pimhAlg      )
   --, ("importance", importanceAlg)
   ]
+
+mhPriorAlg :: BayesAlg a a
+mhPriorAlg s m i = mhPrior i m
 
 
 type MultiSampler a = forall m. MonadDist m => String -> BayesM a -> [Int] -> m [[a]]
@@ -283,10 +287,10 @@ runWeightedBayes sampleSizes algorithms models =
 -- | Execute each combination of sample size and algorithm on all feasible models
 runAllWeightedBayes :: [Int] -> (forall a. [(String, BayesAlg a a)]) -> [Benchmark]
 runAllWeightedBayes sampleSizes algorithms =
-  runWeightedBayes sampleSizes algorithms ksDouble ++
-  runWeightedBayes sampleSizes algorithms klInt    ++
-  runWeightedBayes sampleSizes algorithms klBools  ++
-  runWeightedBayes sampleSizes algorithms bayesInts
+  --runWeightedBayes sampleSizes algorithms ksDouble ++
+  runWeightedBayes sampleSizes algorithms klInt    -- ++
+  --runWeightedBayes sampleSizes algorithms klBools  ++
+  --runWeightedBayes sampleSizes algorithms bayesInts
 
 ---------------------------
 -- GOODNESS-OF-FIT TESTS --
