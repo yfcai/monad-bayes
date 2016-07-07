@@ -18,7 +18,7 @@ import qualified HMM as HMM
 g = mkStdGen 0
 
 smcParticles :: Int -> Int -> Particle (Population Sampler) a -> [(a, LogFloat)]
-smcParticles observations particles model = sample (runPopulation $ smc observations particles model) g
+smcParticles observations particles model = sample (runPopulation $ smc particles observations model) g
 
 sameWeights :: [(a, LogFloat)] -> Bool
 sameWeights xs = length (nub $ map snd xs) == 1

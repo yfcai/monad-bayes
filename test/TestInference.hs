@@ -25,12 +25,12 @@ sprinkler = Sprinkler.soft
 
 g = mkStdGen 0
 
-check_terminate_smc = stdSample (smc' 2 5 sprinkler) g
+check_terminate_smc = stdSample (smc' 5 2 sprinkler) g
 
 check_preserve_smc = (enumerate . runIdentityT . collapse . smc 2 2) sprinkler ~==
                       enumerate sprinkler
 
-check_preserve_smcrm = (enumerate . runIdentityT . collapse . smcrm 2 1) sprinkler ~==
+check_preserve_smcrm = (enumerate . runIdentityT . collapse . smcrm 1 2) sprinkler ~==
                         enumerate sprinkler
 
 sprinkler_posterior = duplicateWeight sprinkler
@@ -58,4 +58,4 @@ check_trace_support = check_trace_mh StrictlySmallerSupport.model StrictlySmalle
 -- | Count the number of particles produced by SMC
 check_particles :: Int -> Int -> Int
 check_particles observations particles =
-  stdSample (fmap length (runPopulation $ smc observations particles Gamma.model)) g
+  stdSample (fmap length (runPopulation $ smc particles observations Gamma.model)) g

@@ -47,12 +47,12 @@ importance' n d = fmap (enumerate . categorical) $ runPopulation $ spawn n >> d
 -- If the first argument is smaller than the number of observations in the model,
 -- the algorithm is still correct, but doesn't perform resampling after kth time.
 smc :: MonadDist m => Int -> Int -> Particle (Population m) a -> Population m a
-smc k n = smcWithResampler (resampleN n) k n
+smc n k = smcWithResampler (resampleN n) n k
 
 -- | `smc` with post-processing.
 smc' :: (Ord a, MonadDist m) => Int -> Int ->
         Particle (Population m) a -> m [(a,Double)]
-smc' k n d = fmap (enumerate . categorical) $ runPopulation $ smc k n d
+smc' n k d = fmap (enumerate . categorical) $ runPopulation $ smc n k d
 
 -- | Asymptotically faster version of 'smc' that resamples using multinomial
 -- instead of a sequence of categoricals.
@@ -66,14 +66,14 @@ smcWithResampler :: MonadDist m =>
                     (forall x. Population m x -> Population m x) ->
                     Int -> Int -> Particle (Population m) a -> Population m a
 
-smcWithResampler resampler k n =
+smcWithResampler resampler n k =
   finish . composeCopies k (advance . hoistP resampler) . hoistP (spawn n >>)
 
 smcrm :: forall m a. MonadDist m =>
          Int -> Int ->
          Particle (Trace (Population m)) a -> Population m a
 
-smcrm k n = marginal . finish . composeCopies k step . init
+smcrm n k = marginal . finish . composeCopies k step . init
   where
   init :: Particle (Trace (Population m)) a -> Particle (Trace (Population m)) a
   init = hoistP (hoistT (spawn n >>))
