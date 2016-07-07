@@ -23,7 +23,7 @@ let weather = do { rain <- bernoulli 0.3; when rain (factor 0.2); sprinkler <- b
 enumerate weather
 
 -- get 3 samples using SMC
-runPopulation $ smc 3 2 weather
+runPopulation $ smc 3 2 weather :: IO [(Bool, LogFloat)]
 
 -- compute exact posterior of weather model transformed by SMC
 -- running with 2 particles instead of 3; it will be slow otherwise.
