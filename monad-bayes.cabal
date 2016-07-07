@@ -4,10 +4,6 @@ synopsis:            A library for probabilistic programming in Haskell.
 description:         Please see README.md
 homepage:            http://github.com/adscib/monad-bayes#readme
 license:             MIT
-license-file:        LICENSE
-author:              Adam Scibior
-maintainer:          adscib@gmail.com
-copyright:           2015 Adam Scibior
 category:            Statistics
 build-type:          Simple
 -- extra-source-files:
