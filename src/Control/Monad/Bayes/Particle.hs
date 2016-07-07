@@ -9,15 +9,15 @@
 module Control.Monad.Bayes.Particle (
     Particle,
     synchronize,
-    flatten,
+    finish,
     advance,
     finished,
-    mapMonad
+    hoistP
                 ) where
 
 import Control.Monad.Trans.Class
 import Control.Monad (liftM2)
-import Control.Monad.Coroutine hiding (mapMonad)
+import Control.Monad.Coroutine
 import Control.Monad.Coroutine.SuspensionFunctors
 import Data.Either
 
@@ -36,8 +36,8 @@ synchronize :: Monad m => Particle m ()
 synchronize = await
 
 -- | Removes the synchronization barriers.
-flatten :: Monad m => Particle m a -> m a
-flatten = pogoStick extract
+finish :: Monad m => Particle m a -> m a
+finish = pogoStick extract
 
 -- | Run a particle to the next barrier.
 -- If the computation is finished do nothing.
@@ -48,9 +48,9 @@ advance = bounce extract
 finished :: Monad m => Particle m a -> m Bool
 finished = fmap isRight . resume
 
-mapMonad :: Monad m =>
-            (forall a. m a -> m a) -> Particle m a -> Particle m a
-mapMonad f cort = Coroutine {resume= f $ resume cort}
+hoistP :: Monad m =>
+          (forall a. m a -> m a) -> Particle m a -> Particle m a
+hoistP f cort = Coroutine {resume= f $ resume cort}
 
 instance MonadDist m => MonadDist (Particle m) where
     primitive = lift . primitive

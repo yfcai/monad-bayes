@@ -25,7 +25,7 @@ check_two_sync 2 = mass (finished_two_sync 2) True  ~== 1
 sprinkler :: MonadBayes m => m Bool
 sprinkler = Sprinkler.soft
 
-check_preserve = enumerate (flatten sprinkler) ~== enumerate sprinkler
+check_preserve = enumerate (finish sprinkler) ~== enumerate sprinkler
 
 p_finished 0 = 0.8267716535433071
 p_finished 1 = 0.9988062077198566

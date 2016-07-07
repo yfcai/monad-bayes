@@ -19,8 +19,8 @@ import Control.Monad.Bayes.Class
 import Control.Monad.Bayes.Sampler
 import Control.Monad.Bayes.Rejection
 import Control.Monad.Bayes.Weighted
-import Control.Monad.Bayes.Particle as Particle
-import Control.Monad.Bayes.Trace    as Trace
+import Control.Monad.Bayes.Particle
+import Control.Monad.Bayes.Trace
 import Control.Monad.Bayes.Empirical
 import Control.Monad.Bayes.Dist
 import Control.Monad.Bayes.Prior
@@ -67,24 +67,19 @@ smcWithResampler :: MonadDist m =>
                     Int -> Int -> Particle (Population m) a -> Population m a
 
 smcWithResampler resampler k n =
-  flatten . composeCopies k (advance . hoist' resampler) . hoist' (spawn n >>)
-  where
-    hoist' = Particle.mapMonad
+  finish . composeCopies k (advance . hoistP resampler) . hoistP (spawn n >>)
 
 smcrm :: forall m a. MonadDist m =>
          Int -> Int ->
-         Particle (Trace' (Population m)) a -> Population m a
+         Particle (Trace (Population m)) a -> Population m a
 
-smcrm k n = marginal' . flatten . composeCopies k step . init
+smcrm k n = marginal . finish . composeCopies k step . init
   where
-  hoistC  = Particle.mapMonad
-  hoistT  = Trace.mapMonad'
+  init :: Particle (Trace (Population m)) a -> Particle (Trace (Population m)) a
+  init = hoistP (hoistT (spawn n >>))
 
-  init :: Particle (Trace' (Population m)) a -> Particle (Trace' (Population m)) a
-  init = hoistC (hoistT (spawn n >>))
-
-  step :: Particle (Trace' (Population m)) a -> Particle (Trace' (Population m)) a
-  step = advance . hoistC (mhStep' . hoistT resample)
+  step :: Particle (Trace (Population m)) a -> Particle (Trace (Population m)) a
+  step = advance . hoistP (mhStep . hoistT resample)
 
 -- | Metropolis-Hastings kernel. Generates a new value and the MH ratio.
 newtype MHKernel m a = MHKernel {runMHKernel :: a -> m (a,LogFloat)}
@@ -114,8 +109,8 @@ mh n init trans = evalStateT (start >>= chain n) 1 where
 -- | Trace MH. Each state of the Markov chain consists of a list
 -- of continuations from the sampling of each primitive distribution
 -- during an execution.
-traceMH :: (MonadDist m) => Int -> Trace m a -> m [a]
-traceMH n (Trace m) = m >>= init >>= loop n
+traceMH :: (MonadDist m) => Int -> Trace' m a -> m [a]
+traceMH n (Trace' m) = m >>= init >>= loop n
   where
     init state | mhPosteriorWeight state >  0 = return state
     init state | mhPosteriorWeight state == 0 = m >>= init

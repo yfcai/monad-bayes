@@ -125,64 +125,64 @@ mhReset m = withWeight $ Coprimitive $ Coroutine $ do
     Snapshot d x continuation : _ ->
       return $ Left $ AwaitSampler d (runCoprimitive . runWeighted . continuation)
 
-newtype Trace m a = Trace { runTrace :: m (MHState m a) }
+newtype Trace' m a = Trace' { runTrace' :: m (MHState m a) }
   deriving (Functor)
 
-instance Monad m => Applicative (Trace m) where
+instance Monad m => Applicative (Trace' m) where
   pure  = return
   (<*>) = liftM2 ($)
 
-instance Monad m => Monad (Trace m) where
+instance Monad m => Monad (Trace' m) where
 
-  return = Trace . return . MHState [] 1
+  return = Trace' . return . MHState [] 1
 
-  m >>= f = Trace $ do
-    MHState ls lw la <- runTrace m
-    MHState rs rw ra <- runTrace (f la)
+  m >>= f = Trace' $ do
+    MHState ls lw la <- runTrace' m
+    MHState rs rw ra <- runTrace' (f la)
     return $ MHState (map (fmap convert) ls ++ map (fmap (addFactor lw)) rs) (lw * rw) ra
     where
       --convert :: Weighted (Coprimitive m) a -> Weighted (Coprimitive m) b
-      convert = (>>= mhReset . runTrace . f)
+      convert = (>>= mhReset . runTrace' . f)
 
       -- addFactor :: LogFloat -> Weighted (Coprimitive m) b -> Weighted (Coprimitive m) b
       addFactor k = (withWeight (return ((), k)) >>)
 
-instance MonadTrans Trace where
-  lift = Trace . fmap (MHState [] 1)
+instance MonadTrans Trace' where
+  lift = Trace' . fmap (MHState [] 1)
 
-instance MonadDist m => MonadDist (Trace m) where
-  primitive d = Trace $ do
+instance MonadDist m => MonadDist (Trace' m) where
+  primitive d = Trace' $ do
     x <- primitive d
     return $ MHState [Snapshot d x return] 1 x
 
-instance MonadDist m => MonadBayes (Trace m) where
-  factor k = Trace $ return $ MHState [] k ()
+instance MonadDist m => MonadBayes (Trace' m) where
+  factor k = Trace' $ return $ MHState [] k ()
 
--- | Like Trace, except it passes factors to the underlying monad.
-newtype Trace' m a = Trace' { runTrace' :: Trace (WeightRecorderT m) a }
+-- | Like Trace', except it passes factors to the underlying monad.
+newtype Trace m a = Trace { runTrace :: Trace' (WeightRecorderT m) a }
   deriving (Functor, Applicative, Monad, MonadDist)
 
-instance MonadTrans Trace' where
-  -- lift :: m a -> Trace' m a
-  lift = Trace' . lift . lift
+instance MonadTrans Trace where
+  -- lift :: m a -> Trace m a
+  lift = Trace . lift . lift
 
-instance MonadBayes m => MonadBayes (Trace' m) where
-  factor k = Trace' $ do
+instance MonadBayes m => MonadBayes (Trace m) where
+  factor k = Trace $ do
     factor k
     lift (factor k)
 
-mapMonad :: Monad m => (forall x. m x -> m x) -> Trace m x -> Trace m x
-mapMonad nat (Trace m) = Trace (nat m)
+hoistT' :: Monad m => (forall x. m x -> m x) -> Trace' m x -> Trace' m x
+hoistT' nat (Trace' m) = Trace' (nat m)
 
-mapMonad' :: Monad m => (forall x. m x -> m x) -> Trace' m x -> Trace' m x
-mapMonad' nat (Trace' (Trace (WeightRecorderT w))) = Trace' (Trace (WeightRecorderT (withWeight (nat (runWeighted w)))))
+hoistT :: Monad m => (forall x. m x -> m x) -> Trace m x -> Trace m x
+hoistT nat (Trace (Trace' (WeightRecorderT w))) = Trace (Trace' (WeightRecorderT (withWeight (nat (runWeighted w)))))
 
-mhStep :: (MonadDist m) => Trace m a -> Trace m a
-mhStep (Trace m) = Trace (m >>= mhKernel)
+mhStep' :: (MonadDist m) => Trace' m a -> Trace' m a
+mhStep' (Trace' m) = Trace' (m >>= mhKernel)
 
 -- | Make one MH transition, retain weight from the source distribution
-mhStep' :: (MonadBayes m) => Trace' m a -> Trace' m a
-mhStep' (Trace' (Trace (WeightRecorderT w))) = Trace' $ Trace $ WeightRecorderT $ withWeight $ do
+mhStep :: (MonadBayes m) => Trace m a -> Trace m a
+mhStep (Trace (Trace' (WeightRecorderT w))) = Trace $ Trace' $ WeightRecorderT $ withWeight $ do
   (oldState, oldWeight) <- runWeighted w
   ((newState, acceptRatio), newWeight) <- runWeighted $ duplicateWeight $ mhPropose oldState
 
@@ -195,16 +195,16 @@ mhStep' (Trace' (Trace (WeightRecorderT w))) = Trace' $ Trace $ WeightRecorderT 
 
   return (nextState, oldWeight)
 
-mhForgetWeight :: Monad m => Trace' m a -> Trace' m a
-mhForgetWeight (Trace' (Trace m)) = Trace' $ Trace $ do
+mhForgetWeight :: Monad m => Trace m a -> Trace m a
+mhForgetWeight (Trace (Trace' m)) = Trace $ Trace' $ do
   state <- m
   return $ state {mhPosteriorWeight = 1}
 
-marginal :: Functor m => Trace m a -> m a
-marginal = fmap mhAnswer . runTrace
-
 marginal' :: Functor m => Trace' m a -> m a
-marginal' = fmap fst . runWeighted . runWeightRecorderT . marginal . runTrace'
+marginal' = fmap mhAnswer . runTrace'
+
+marginal :: Functor m => Trace m a -> m a
+marginal = fmap fst . runWeighted . runWeightRecorderT . marginal' . runTrace
 
 -- | Propose new state, compute acceptance ratio
 mhPropose :: (MonadDist m) => MHState m a -> m (MHState m a, LogFloat)
